@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.0-pg16
+    container_name: rag_postgres
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag
+      POSTGRES_DB: ragdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
