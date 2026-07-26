@@ -1,0 +1,1954 @@
+[
+  {
+    "question_id": "Q001",
+    "category": "straightforward",
+    "user_input": "In DRF, when exactly do the authentication classes run relative to the rest of my view logic?",
+    "reference": "Authentication is the very first thing a DRF view does. It runs before the permission and throttling checks and before any of your own view code.",
+    "reference_contexts": [
+      "Authentication always runs at the very start of the view, before the permission and throttling checks occur, and before any other code is allowed to proceed."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q002",
+    "category": "straightforward",
+    "user_input": "Coming from plain Django I keep hunting for some kind of \"login middleware\" I can switch on so the whole API requires auth — but there doesn't seem to be one. What's the DRF way to set the authentication for every endpoint at once?",
+    "reference": "Set them globally with DEFAULT_AUTHENTICATION_CLASSES in your REST_FRAMEWORK settings dict; every view uses that default unless it overrides it per-view or per-viewset.",
+    "reference_contexts": [
+      "The default authentication schemes may be set globally, using the DEFAULT_AUTHENTICATION_CLASSES setting.",
+      "REST_FRAMEWORK = { 'DEFAULT_AUTHENTICATION_CLASSES' : [ 'rest_framework.authentication.BasicAuthentication' , 'rest_framework.authentication.SessionAuthentication' , ] } You can also set the authentication scheme on a per-view or per-viewset basis, using the APIView class-based views."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q003",
+    "category": "straightforward",
+    "user_input": "What header and prefix does DRF's built-in TokenAuthentication expect for the token?",
+    "reference": "Send it in the Authorization header prefixed with the literal word \"Token\" and a space, e.g. `Authorization: Token 9944...`. Subclass TokenAuthentication if you'd rather use a keyword like Bearer.",
+    "reference_contexts": [
+      "key ) For clients to authenticate, the token key should be included in the Authorization HTTP header.",
+      "For example: Authorization : Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b If you want to use a different keyword in the header, such as Bearer , simply subclass TokenAuthentication and set the keyword class variable."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q004",
+    "category": "straightforward",
+    "user_input": "Which permission class gives anonymous users read access but requires login to write?",
+    "reference": "IsAuthenticatedOrReadOnly: authenticated users can make any request, while unauthenticated users are limited to the safe methods GET, HEAD and OPTIONS.",
+    "reference_contexts": [
+      "The IsAuthenticatedOrReadOnly will allow authenticated users to perform any request.",
+      "This permission is suitable if you want to your API to allow read permissions to anonymous users, and only allow write permissions to authenticated users."
+    ],
+    "source_pages": [
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q005",
+    "category": "straightforward",
+    "user_input": "What's the difference between IsAuthenticated and AllowAny?",
+    "reference": "IsAuthenticated blocks anonymous users and lets logged-in users through; AllowAny lets every request through regardless of authentication.",
+    "reference_contexts": [
+      "The IsAuthenticated permission class will deny permission to any unauthenticated user, and allow permission otherwise.",
+      "The AllowAny permission class will allow unrestricted access, regardless of if the request was authenticated or unauthenticated ."
+    ],
+    "source_pages": [
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q006",
+    "category": "straightforward",
+    "user_input": "How do I turn on pagination for my whole API, and what settings does it need?",
+    "reference": "Set DEFAULT_PAGINATION_CLASS and PAGE_SIZE globally in REST_FRAMEWORK. You need both — they're None by default.",
+    "reference_contexts": [
+      "The pagination style may be set globally, using the DEFAULT_PAGINATION_CLASS and PAGE_SIZE setting keys.",
+      "For example, to use the built-in limit/offset pagination, you would do something like this: REST_FRAMEWORK = { 'DEFAULT_PAGINATION_CLASS' : 'rest_framework.pagination.LimitOffsetPagination' , 'PAGE_SIZE' : 100 } Note that you need to set both the pagination class, and the page size that should be used."
+    ],
+    "source_pages": [
+      {
+        "page": "pagination",
+        "url": "https://www.django-rest-framework.org/api-guide/pagination/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q007",
+    "category": "straightforward",
+    "user_input": "I added a pagination class but my list endpoint won't paginate. Does pagination work with any view?",
+    "reference": "Only generic views and viewsets paginate automatically. A plain APIView won't unless you call the pagination API yourself.",
+    "reference_contexts": [
+      "Pagination is only performed automatically if you're using the generic views or viewsets."
+    ],
+    "source_pages": [
+      {
+        "page": "pagination",
+        "url": "https://www.django-rest-framework.org/api-guide/pagination/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q008",
+    "category": "straightforward",
+    "user_input": "What do I set so clients can search my list endpoint with ?search=?",
+    "reference": "Add DRF's SearchFilter to the view and give it a search_fields attribute; the filter only activates once search_fields is set.",
+    "reference_contexts": [
+      "When in use, the browsable API will include a SearchFilter control: The SearchFilter class will only be applied if the view has a search_fields attribute set.",
+      "The search_fields attribute should be a list of names of text type fields on the model, such as CharField or TextField ."
+    ],
+    "source_pages": [
+      {
+        "page": "filtering",
+        "url": "https://www.django-rest-framework.org/api-guide/filtering/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q009",
+    "category": "straightforward",
+    "user_input": "How do I let clients order list results but restrict which fields they can sort on?",
+    "reference": "Use OrderingFilter and set an explicit ordering_fields list on the view so users can't sort on sensitive columns.",
+    "reference_contexts": [
+      "It's recommended that you explicitly specify which fields the API should allow in the ordering filter.",
+      "You can do this by setting an ordering_fields attribute on the view, like so: class UserListView ( generics ."
+    ],
+    "source_pages": [
+      {
+        "page": "filtering",
+        "url": "https://www.django-rest-framework.org/api-guide/filtering/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q010",
+    "category": "straightforward",
+    "user_input": "I've got a Spring background and I'm looking for DRF's equivalent of a DTO — something to turn a list of model objects into JSON in one shot. How do I serialize a whole queryset at once?",
+    "reference": "Pass many=True when instantiating the serializer, then give it the queryset or list of objects.",
+    "reference_contexts": [
+      "To serialize a queryset or list of objects instead of a single object instance, you should pass the many=True flag when instantiating the serializer."
+    ],
+    "source_pages": [
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q011",
+    "category": "straightforward",
+    "user_input": "Instead of marking every field read_only=True individually on my ModelSerializer, is there a shortcut?",
+    "reference": "Yes — use the Meta option read_only_fields with a list/tuple of field names.",
+    "reference_contexts": [
+      "You may wish to specify multiple fields as read-only.",
+      "ModelSerializer ): class Meta : model = Account fields = [ 'id' , 'account_name' , 'users' , 'created' ] read_only_fields = [ 'account_name' ] Model fields which have editable=False set, and AutoField fields will be set to read-only by default, and do not need to be added to the read_only_fields option."
+    ],
+    "source_pages": [
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q012",
+    "category": "straightforward",
+    "user_input": "What does the depth option on a ModelSerializer Meta control?",
+    "reference": "How many levels of relationships get expanded into nested representations before DRF reverts to a flat (primary-key) representation.",
+    "reference_contexts": [
+      "ModelSerializer ): class Meta : model = Account fields = [ 'id' , 'account_name' , 'users' , 'created' ] depth = 1 The depth option should be set to an integer value that indicates the depth of relationships that should be traversed before reverting to a flat representation."
+    ],
+    "source_pages": [
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q013",
+    "category": "straightforward",
+    "user_input": "What does serializer.is_valid(raise_exception=True) do?",
+    "reference": "It raises a serializers.ValidationError on invalid data, which DRF's default exception handler turns into a 400 response automatically.",
+    "reference_contexts": [
+      "The .is_valid() method takes an optional raise_exception flag that will cause it to raise a serializers.ValidationError exception if there are validation errors."
+    ],
+    "source_pages": [
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q014",
+    "category": "straightforward",
+    "user_input": "Where do I put validation for a single serializer field?",
+    "reference": "Add a .validate_<field_name> method to your Serializer subclass — it works like Django forms' .clean_<field_name> and gets the field value.",
+    "reference_contexts": [
+      "You can specify custom field-level validation by adding .validate_<field_name> methods to your Serializer subclass."
+    ],
+    "source_pages": [
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q015",
+    "category": "straightforward",
+    "user_input": "Which validator enforces a model's unique=True at the serializer level?",
+    "reference": "UniqueValidator — attach it to the serializer field with the queryset to check against.",
+    "reference_contexts": [
+      "This validator can be used to enforce the unique=True constraint on model fields.",
+      "This validator should be applied to serializer fields , like so: from rest_framework ."
+    ],
+    "source_pages": [
+      {
+        "page": "validators",
+        "url": "https://www.django-rest-framework.org/api-guide/validators/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q016",
+    "category": "straightforward",
+    "user_input": "What's a SerializerMethodField for?",
+    "reference": "A read-only field whose value comes from a method on the serializer, letting you add arbitrary computed data to the output.",
+    "reference_contexts": [
+      "This is a read-only field. It gets its value by calling a method on the serializer class it is attached to."
+    ],
+    "source_pages": [
+      {
+        "page": "fields",
+        "url": "https://www.django-rest-framework.org/api-guide/fields/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q017",
+    "category": "straightforward",
+    "user_input": "What does write_only=True on a field do?",
+    "reference": "It makes the field usable for create/update but keeps it out of serialized output — handy for passwords.",
+    "reference_contexts": [
+      "Set this to True to ensure that the field may be used when updating or creating an instance, but is not included when serializing the representation."
+    ],
+    "source_pages": [
+      {
+        "page": "fields",
+        "url": "https://www.django-rest-framework.org/api-guide/fields/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q018",
+    "category": "straightforward",
+    "user_input": "How does the source argument on a serializer field work?",
+    "reference": "source names the attribute used to populate the field; it can be a no-arg method or a dotted path like 'user.email' to traverse relations.",
+    "reference_contexts": [
+      "The name of the attribute that will be used to populate the field."
+    ],
+    "source_pages": [
+      {
+        "page": "fields",
+        "url": "https://www.django-rest-framework.org/api-guide/fields/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q019",
+    "category": "straightforward",
+    "user_input": "What's the simplest related field to render a relation using the target's __str__?",
+    "reference": "StringRelatedField, which represents the target via its __str__ method and is read-only.",
+    "reference_contexts": [
+      "StringRelatedField may be used to represent the target of the relationship using its __str__ method."
+    ],
+    "source_pages": [
+      {
+        "page": "relations",
+        "url": "https://www.django-rest-framework.org/api-guide/relations/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q020",
+    "category": "straightforward",
+    "user_input": "How do I represent a relation by a unique field on the related object instead of its PK?",
+    "reference": "Use SlugRelatedField and set slug_field to the attribute you want to represent it by.",
+    "reference_contexts": [
+      "SlugRelatedField may be used to represent the target of the relationship using a field on the target."
+    ],
+    "source_pages": [
+      {
+        "page": "relations",
+        "url": "https://www.django-rest-framework.org/api-guide/relations/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q021",
+    "category": "straightforward",
+    "user_input": "Which parser accepts multipart form data with file uploads?",
+    "reference": "MultiPartParser; pair it with FormParser to fully support HTML form data.",
+    "reference_contexts": [
+      "Parses multipart HTML form content, which supports file uploads.",
+      "You will typically want to use both FormParser and MultiPartParser together in order to fully support HTML form data."
+    ],
+    "source_pages": [
+      {
+        "page": "parsers",
+        "url": "https://www.django-rest-framework.org/api-guide/parsers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q022",
+    "category": "straightforward",
+    "user_input": "In tests, how do I authenticate a request without the real credential flow?",
+    "reference": "Use force_authenticate() to directly authenticate the request against a user (and optionally a token).",
+    "reference_contexts": [
+      "To forcibly authenticate a request, use the force_authenticate() method."
+    ],
+    "source_pages": [
+      {
+        "page": "testing",
+        "url": "https://www.django-rest-framework.org/api-guide/testing/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q023",
+    "category": "straightforward",
+    "user_input": "Why prefer request.query_params over request.GET in DRF?",
+    "reference": "request.query_params is DRF's more correctly named synonym for request.GET; it's clearer since any HTTP method can carry query parameters.",
+    "reference_contexts": [
+      "For clarity inside your code, we recommend using request.query_params instead of the Django's standard request.GET ."
+    ],
+    "source_pages": [
+      {
+        "page": "requests",
+        "url": "https://www.django-rest-framework.org/api-guide/requests/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q024",
+    "category": "straightforward",
+    "user_input": "What's DRF's reverse() and how does it differ from Django's?",
+    "reference": "rest_framework.reverse.reverse behaves like django.urls.reverse but returns a fully qualified URL using the request's host/port — so pass the request.",
+    "reference_contexts": [
+      "Signature: reverse(viewname, *args, **kwargs) Has the same behavior as django.urls.reverse , except that it returns a fully qualified URL, using the request to determine the host and port."
+    ],
+    "source_pages": [
+      {
+        "page": "reverse",
+        "url": "https://www.django-rest-framework.org/api-guide/reverse/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q025",
+    "category": "straightforward",
+    "user_input": "What does @api_view do to a plain function view?",
+    "reference": "It wraps the function so it gets a DRF Request and returns a DRF Response for the listed HTTP methods; by default only GET is accepted and others get a 405.",
+    "reference_contexts": [
+      "By default only GET methods will be accepted. Other methods will respond with \"405 Method Not Allowed\"."
+    ],
+    "source_pages": [
+      {
+        "page": "views",
+        "url": "https://www.django-rest-framework.org/api-guide/views/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q026",
+    "category": "intent_driven",
+    "user_input": "We're launching a mobile app with ~200k users and we don't want server-side sessions. I want each user to authenticate once and then send some credential on every request, and I need an endpoint that hands that credential back given a username and password. What's the DRF-native approach and what do I have to install/migrate?",
+    "reference": "TokenAuthentication fits client-server setups like mobile apps. Enable it plus rest_framework.authtoken, run migrate, and expose the built-in obtain_auth_token view so clients POST username/password and get a token to send in the Authorization header.",
+    "reference_contexts": [
+      "Token authentication is appropriate for client-server setups, such as native desktop and mobile clients.",
+      "REST framework provides a built-in view to provide this behavior.",
+      "The obtain_auth_token view will return a JSON response when valid username and password fields are POSTed to the view using form data or JSON: { 'token' : '9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b' } Note that the default obtain_auth_token view explicitly uses JSON requests and responses, rather than using default renderer and parser classes in your settings.",
+      "A list or tuple of authentication classes, that determines the default set of authenticators used when accessing the request.user or request.auth properties."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q027",
+    "category": "intent_driven",
+    "user_input": "I want everyone to be able to browse my data, but only the user who created a record should be able to change or delete it. How do I structure this in DRF?",
+    "reference": "Combine IsAuthenticatedOrReadOnly with a custom object-level permission (IsOwnerOrReadOnly) whose has_object_permission allows safe methods for anyone and write methods only when obj.owner == request.user.",
+    "reference_contexts": [
+      "BasePermission ): \"\"\" Custom permission to only allow owners of an object to edit it.",
+      "SAFE_METHODS : return True # Write permissions are only allowed to the owner of the snippet.",
+      "The IsAuthenticatedOrReadOnly will allow authenticated users to perform any request."
+    ],
+    "source_pages": [
+      {
+        "page": "4-authentication-and-permissions",
+        "url": "https://www.django-rest-framework.org/tutorial/4-authentication-and-permissions/"
+      },
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q028",
+    "category": "intent_driven",
+    "user_input": "When a user creates a record, I want its owner set automatically to whoever is logged in — the client should never send it. What's the clean way?",
+    "reference": "Don't take it from request data. In a generic view override perform_create to save with user=self.request.user, or on the serializer use a HiddenField with default=CurrentUserDefault so the current user is injected at save.",
+    "reference_contexts": [
+      "These hooks are particularly useful for setting attributes that are implicit in the request, but are not part of the request data.",
+      "A default class that can be used to represent the current user.",
+      "This field will be present in validated_data but will not be used in the serializer output representation."
+    ],
+    "source_pages": [
+      {
+        "page": "generic-views",
+        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
+      },
+      {
+        "page": "validators",
+        "url": "https://www.django-rest-framework.org/api-guide/validators/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q029",
+    "category": "intent_driven",
+    "user_input": "My API is getting hammered. I want to cap how many requests anonymous vs logged-in users can make per day. What's the mechanism and where do the numbers go?",
+    "reference": "Enable AnonRateThrottle and UserRateThrottle as throttle classes and put the actual limits (like '100/day' and '1000/day') under DEFAULT_THROTTLE_RATES.",
+    "reference_contexts": [
+      "The default throttling policy may be set globally, using the DEFAULT_THROTTLE_CLASSES and DEFAULT_THROTTLE_RATES settings.",
+      "REST_FRAMEWORK = { 'DEFAULT_THROTTLE_CLASSES' : [ 'rest_framework.throttling.AnonRateThrottle' , 'rest_framework.throttling.UserRateThrottle' ], 'DEFAULT_THROTTLE_RATES' : { 'anon' : '100/day' , 'user' : '1000/day' } } The rates used in DEFAULT_THROTTLE_RATES can be specified over a period of second, minute, hour or day.",
+      "A list or tuple of throttle classes, that determines the default set of throttles checked at the start of a view."
+    ],
+    "source_pages": [
+      {
+        "page": "throttling",
+        "url": "https://www.django-rest-framework.org/api-guide/throttling/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q030",
+    "category": "intent_driven",
+    "user_input": "I need different rate limits for different parts of my API — a strict cap on uploads but looser on contacts. How do I do per-area limits rather than one global user rate?",
+    "reference": "Use ScopedRateThrottle: give each view a .throttle_scope naming its area and set a rate per scope in DEFAULT_THROTTLE_RATES. The throttle only applies to views that declare a throttle_scope.",
+    "reference_contexts": [
+      "The ScopedRateThrottle class can be used to restrict access to specific parts of the API.",
+      "This throttle will only be applied if the view that is being accessed includes a .throttle_scope property.",
+      "The unique throttle key will then be formed by concatenating the \"scope\" of the request with the unique user id or IP address.",
+      "A list or tuple of throttle classes, that determines the default set of throttles checked at the start of a view."
+    ],
+    "source_pages": [
+      {
+        "page": "throttling",
+        "url": "https://www.django-rest-framework.org/api-guide/throttling/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q031",
+    "category": "intent_driven",
+    "user_input": "I want users to only ever see and edit their own objects through my list endpoints — never anyone else's. Recommended approach?",
+    "reference": "Filter the queryset per request: override get_queryset to restrict results to request.user's objects, because object-level permissions aren't applied across a list for performance reasons.",
+    "reference_contexts": [
+      "The simplest way to filter the queryset of any view that subclasses GenericAPIView is to override the .get_queryset() method.",
+      "You can do so by filtering based on the value of request.user .",
+      "For performance reasons the generic views will not automatically apply object level permissions to each instance in a queryset when returning a list of objects.",
+      "queryset - The queryset that should be used for returning objects from this view."
+    ],
+    "source_pages": [
+      {
+        "page": "filtering",
+        "url": "https://www.django-rest-framework.org/api-guide/filtering/"
+      },
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      },
+      {
+        "page": "generic-views",
+        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q032",
+    "category": "intent_driven",
+    "user_input": "I want to accept a nested object in one POST — create a user together with their profile. Does DRF handle that out of the box?",
+    "reference": "No. The default ModelSerializer create/update don't support writable nested representations, so you must write your own .create()/.update(), or use a package like DRF Writable Nested.",
+    "reference_contexts": [
+      "The default ModelSerializer .create() and .update() methods do not include support for writable nested representations.",
+      "There are however, third-party packages available such as DRF Writable Nested that support automatic writable nested representations.",
+      "save () return instance Because the behavior of nested creates and updates can be ambiguous, and may require complex dependencies between related models, REST framework 3 requires you to always write these methods explicitly.",
+      "Such nested relationships can be expressed by using serializers as fields."
+    ],
+    "source_pages": [
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      },
+      {
+        "page": "relations",
+        "url": "https://www.django-rest-framework.org/api-guide/relations/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q033",
+    "category": "intent_driven",
+    "user_input": "I want a self-describing API I can click around in a browser during development, with JSON still the primary format. How do I set that up?",
+    "reference": "Register JSONRenderer and BrowsableAPIRenderer under DEFAULT_RENDERER_CLASSES. JSON stays primary while the browsable renderer shows an HTML page reusing the highest-priority renderer for the body.",
+    "reference_contexts": [
+      "The default set of renderers may be set globally, using the DEFAULT_RENDERER_CLASSES setting.",
+      "Renders data into HTML for the Browsable API: This renderer will determine which other renderer would have been given highest priority, and use that to display an API style response within the HTML page.",
+      "REST_FRAMEWORK = { 'DEFAULT_RENDERER_CLASSES' : [ 'rest_framework.renderers.JSONRenderer' , 'rest_framework.renderers.BrowsableAPIRenderer' , ] } You can also set the renderers used for an individual view, or viewset, using the APIView class-based views.",
+      "REST framework uses a simple style of content negotiation to determine which media type should be returned to a client, based on the available renderers, the priorities of each of those renderers, and the client's Accept: header."
+    ],
+    "source_pages": [
+      {
+        "page": "renderers",
+        "url": "https://www.django-rest-framework.org/api-guide/renderers/"
+      },
+      {
+        "page": "content-negotiation",
+        "url": "https://www.django-rest-framework.org/api-guide/content-negotiation/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q034",
+    "category": "intent_driven",
+    "user_input": "I'm tired of writing near-identical URL patterns for every model's list and detail views. What's the DRF way to cut that boilerplate?",
+    "reference": "Move to ViewSets and let a router generate URLs: register each ViewSet with a router and include router.urls, which keeps URL conventions consistent and removes hand-written patterns.",
+    "reference_contexts": [
+      "The conventions for wiring up resources into views and urls can be handled automatically, using a Router class.",
+      "It helps ensure that URL conventions will be consistent across your API, minimizes the amount of code you need to write, and allows you to concentrate on the interactions and representations your API provides rather than the specifics of the URL conf.",
+      "Also note that although this class provides the complete set of create/list/retrieve/update/destroy actions by default, you can restrict the available operations by using the standard permission classes.",
+      "REST framework adds support for automatic URL routing to Django, and provides you with a simple, quick and consistent way of wiring your view logic to a set of URLs."
+    ],
+    "source_pages": [
+      {
+        "page": "6-viewsets-and-routers",
+        "url": "https://www.django-rest-framework.org/tutorial/6-viewsets-and-routers/"
+      },
+      {
+        "page": "viewsets",
+        "url": "https://www.django-rest-framework.org/api-guide/viewsets/"
+      },
+      {
+        "page": "routers",
+        "url": "https://www.django-rest-framework.org/api-guide/routers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q035",
+    "category": "intent_driven",
+    "user_input": "My hyperlinked serializers produce relative, broken URLs. What am I missing to get full absolute URLs?",
+    "reference": "HyperlinkedModelSerializer needs the current request in its context to build fully qualified URLs; pass context={'request': request} (generic views do this for you).",
+    "reference_contexts": [
+      "When instantiating a HyperlinkedModelSerializer you must include the current request in the serializer context, for example: serializer = AccountSerializer ( queryset , context ={ 'request' : request }) Doing so will ensure that the hyperlinks can include an appropriate hostname, so that the resulting representation uses fully qualified URLs, such as: http : //api.example.com/accounts/1/ Rather than relative URLs, such as: /accounts/ 1 / If you do want to use relative URLs, you should explicitly pass {'request': None} in the serializer context.",
+      "HyperlinkedRelatedField may be used to represent the target of the relationship using a hyperlink."
+    ],
+    "source_pages": [
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      },
+      {
+        "page": "relations",
+        "url": "https://www.django-rest-framework.org/api-guide/relations/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q036",
+    "category": "intent_driven",
+    "user_input": "I need to ship a v2 of my API that returns data differently from v1 without breaking existing clients. How does DRF support versioning the behavior of a view?",
+    "reference": "Turn on a versioning scheme so request.version is available, then branch on it — e.g. return a different serializer class from get_serializer_class depending on the version.",
+    "reference_contexts": [
+      "How you vary the API behavior is up to you, but one example you might typically want is to switch to a different serialization style in a newer version.",
+      "You can also set your versioning class plus those three values on a per-view or a per-viewset basis by defining your own versioning scheme and using the default_version , allowed_versions and version_param class variables.",
+      "Returns the class that should be used for the serializer."
+    ],
+    "source_pages": [
+      {
+        "page": "versioning",
+        "url": "https://www.django-rest-framework.org/api-guide/versioning/"
+      },
+      {
+        "page": "generic-views",
+        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q037",
+    "category": "intent_driven",
+    "user_input": "I want to expose an extra custom action on a viewset — like a 'highlight' endpoint on a snippet — that the router routes for me. How?",
+    "reference": "Mark the method with @action and set detail=True or detail=False to say whether it acts on a single object or the collection; the router then builds its URL.",
+    "reference_contexts": [
+      "If you have ad-hoc methods that should be routable, you can mark them as such with the @action decorator.",
+      "To indicate this, set the detail argument to True or False .",
+      "Use the url_path and url_name parameters to change the URL segment and the reverse URL name of the action.",
+      "REST framework adds support for automatic URL routing to Django, and provides you with a simple, quick and consistent way of wiring your view logic to a set of URLs."
+    ],
+    "source_pages": [
+      {
+        "page": "viewsets",
+        "url": "https://www.django-rest-framework.org/api-guide/viewsets/"
+      },
+      {
+        "page": "routers",
+        "url": "https://www.django-rest-framework.org/api-guide/routers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q038",
+    "category": "intent_driven",
+    "user_input": "I've got a React front-end served from the same domain as my API. Users log in through the normal Django login page, but my fetch() POSTs randomly come back 403 while GETs work fine. Do I need JWT? CORS headers? Something with CSRF tokens? What's the right setup here?",
+    "reference": "Use SessionAuthentication so same-context AJAX authenticates off the existing session — but include a valid CSRF token on unsafe methods like POST, PUT, PATCH and DELETE.",
+    "reference_contexts": [
+      "This ensures that once a user has logged in, any AJAX requests made can be authenticated using the same session-based authentication that is used for the rest of the website.",
+      "If you're using an AJAX-style API with SessionAuthentication, you'll need to make sure you include a valid CSRF token for any \"unsafe\" HTTP method calls, such as PUT , PATCH , POST or DELETE requests.",
+      "If you’re building a JavaScript client to interface with your Web API, you'll need to consider if the client can use the same authentication policy that is used by the rest of the website, and also determine if you need to use CSRF tokens or CORS headers."
+    ],
+    "source_pages": [
+      {
+        "page": "ajax-csrf-cors",
+        "url": "https://www.django-rest-framework.org/topics/ajax-csrf-cors/"
+      },
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q039",
+    "category": "intent_driven",
+    "user_input": "I want some endpoints to render as real HTML pages using my own templates. What renderer supports that and what does the view return?",
+    "reference": "TemplateHTMLRenderer: the view returns a dict of context data and names a template, and the renderer builds the HTML page — serializers can even act as HTML forms in those templates.",
+    "reference_contexts": [
+      "The TemplateHTMLRenderer class expects the response to contain a dictionary of context data, and renders an HTML page based on a template that must be specified either in the view or on the response.",
+      "Additionally, serializers can be used as HTML forms and rendered in templates.",
+      "REST framework is suitable for returning both API style responses, and regular HTML pages.",
+      "Renders data to HTML, using Django's standard template rendering."
+    ],
+    "source_pages": [
+      {
+        "page": "html-and-forms",
+        "url": "https://www.django-rest-framework.org/topics/html-and-forms/"
+      },
+      {
+        "page": "renderers",
+        "url": "https://www.django-rest-framework.org/api-guide/renderers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q040",
+    "category": "intent_driven",
+    "user_input": "I want to accept a raw file upload from a native client streaming the file body, not a multipart form. How do I set up the parser and how does DRF get the filename?",
+    "reference": "Use FileUploadParser, which puts the file at request.data['file']; the filename comes from a filename URL kwarg if present, otherwise the client sets it in Content-Disposition.",
+    "reference_contexts": [
+      "The request.data property will be a dictionary with a single key 'file' containing the uploaded file.",
+      "If it is called without a filename URL keyword argument, then the client must set the filename in the Content-Disposition HTTP header.",
+      ".media_type : */* Note The FileUploadParser is for usage with native clients that can upload the file as a raw data request.",
+      "A list or tuple of parser classes, that determines the default set of parsers used when accessing the request.data property."
+    ],
+    "source_pages": [
+      {
+        "page": "parsers",
+        "url": "https://www.django-rest-framework.org/api-guide/parsers/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q041",
+    "category": "intent_driven",
+    "user_input": "I want to combine two permission rules — e.g. authenticated OR a read-only request — without writing a whole new class. Is there a concise way?",
+    "reference": "Yes: permission classes inheriting from BasePermission compose with Python's bitwise operators, so IsAuthenticated | ReadOnly works using &, | and ~.",
+    "reference_contexts": [
+      "Provided they inherit from rest_framework.permissions.BasePermission , permissions can be composed using standard Python bitwise operators.",
+      "method in SAFE_METHODS class ExampleView ( APIView ): permission_classes = [ IsAuthenticated | ReadOnly ] def get ( self , request , format = None ): content = { 'status' : 'request was permitted' } return Response ( content ) Note Composition of permissions supports the & (and), | (or) and ~ (not) operators, and also allows the use of brackets ( ) to group expressions.",
+      "Operators follow the same precedence and associativity rules as standard logical operators ( ~ highest, then & , then | )."
+    ],
+    "source_pages": [
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q042",
+    "category": "intent_driven",
+    "user_input": "Behind Apache with mod_wsgi, my token auth fails — the Authorization header seems to vanish. What's going on and how do I fix it at deploy level?",
+    "reference": "mod_wsgi doesn't pass the Authorization header to the app by default, so non-session auth breaks. Set WSGIPassAuthorization to 'On' to forward it.",
+    "reference_contexts": [
+      "Note that if deploying to Apache using mod_wsgi , the authorization header is not passed through to a WSGI application by default, as it is assumed that authentication will be handled by Apache, rather than at an application level.",
+      "This can be done by specifying the WSGIPassAuthorization directive in the appropriate context and setting it to 'On' ."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q043",
+    "category": "intent_driven",
+    "user_input": "I want clients to page through a huge, constantly-growing table efficiently and never see duplicates when rows are inserted mid-scroll. Which pagination style and what's the catch?",
+    "reference": "CursorPagination: consistent, fixed-time paging that avoids duplicates even as rows are inserted, but it needs a unique, unchanging ordering and only allows forward/reverse navigation.",
+    "reference_contexts": [
+      "Cursor based pagination requires that there is a unique, unchanging ordering of items in the result set.",
+      "This pagination style only presents forward and reverse controls, and does not allow the client to navigate to arbitrary positions.",
+      "With extremely large datasets pagination using offset-based pagination styles may become inefficient or unusable.",
+      "The default class to use for queryset pagination."
+    ],
+    "source_pages": [
+      {
+        "page": "pagination",
+        "url": "https://www.django-rest-framework.org/api-guide/pagination/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q044",
+    "category": "intent_driven",
+    "user_input": "I want a rich, declarative way to let clients filter a list on multiple model fields via query params, beyond DRF's simple search. What integrates with DRF?",
+    "reference": "Use django-filter's DjangoFilterBackend for highly customizable field filtering: install django-filter, add 'django_filters' to INSTALLED_APPS, and wire the backend via DEFAULT_FILTER_BACKENDS or per view.",
+    "reference_contexts": [
+      "The django-filter library includes a DjangoFilterBackend class which supports highly customizable field filtering for REST framework.",
+      "To use DjangoFilterBackend , first install django-filter .",
+      "all () serializer_class = ProductSerializer filter_backends = [ DjangoFilterBackend ] filterset_fields = [ 'category' , 'in_stock' ] This will automatically create a FilterSet class for the given fields, and will allow you to make requests such as: http : //example.com/api/products?category=clothing&in_stock=True For more advanced filtering requirements you can specify a FilterSet class that should be used by the view.",
+      "A list of filter backend classes that should be used for generic filtering."
+    ],
+    "source_pages": [
+      {
+        "page": "filtering",
+        "url": "https://www.django-rest-framework.org/api-guide/filtering/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q045",
+    "category": "intent_driven",
+    "user_input": "I want to stop a user creating two records with the same combination of two fields — like no two items sharing a position in the same list. How do I express that in DRF validation?",
+    "reference": "Apply a UniqueTogetherValidator in the serializer's Meta.validators with the queryset and the field names that must be unique as a set; note it implicitly treats those fields as required.",
+    "reference_contexts": [
+      "This validator can be used to enforce unique_together constraints on model instances.",
+      "fields required - A list or tuple of field names which should make a unique set.",
+      "all (), fields =[ 'list' , 'position' ] ) ] Note The UniqueTogetherValidator class always imposes an implicit constraint that all the fields it applies to are always treated as required.",
+      "Serializer classes can also include reusable validators that are applied to the complete set of field data."
+    ],
+    "source_pages": [
+      {
+        "page": "validators",
+        "url": "https://www.django-rest-framework.org/api-guide/validators/"
+      },
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q046",
+    "category": "intent_driven",
+    "user_input": "I want my custom permission to return a specific, human-friendly denial message instead of DRF's generic one. How?",
+    "reference": "Set a message attribute directly on your custom permission class; when the check fails DRF uses it instead of PermissionDenied's default_detail.",
+    "reference_contexts": [
+      "To change the error message associated with the exception, implement a message attribute directly on your custom permission.",
+      "Otherwise the default_detail attribute from PermissionDenied will be used."
+    ],
+    "source_pages": [
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q047",
+    "category": "intent_driven",
+    "user_input": "When should I reach for a ReadOnlyModelViewSet instead of a full ModelViewSet, and what do the two actually differ on?",
+    "reference": "Use ReadOnlyModelViewSet when you only need read endpoints: it provides just .list() and .retrieve(), whereas ModelViewSet gives the full create/list/retrieve/update/destroy set. Both inherit from GenericAPIView and both still require queryset and serializer_class.",
+    "reference_contexts": [
+      "all () serializer_class = UserSerializer Here we've used the ReadOnlyModelViewSet class to automatically provide the default 'read-only' operations.",
+      "We're still setting the queryset and serializer_class attributes exactly as we did when we were using regular views, but we no longer need to provide the same information to two separate classes.",
+      "The ModelViewSet class inherits from GenericAPIView and includes implementations for various actions, by mixing in the behavior of the various mixin classes.",
+      "The ReadOnlyModelViewSet class also inherits from GenericAPIView ."
+    ],
+    "source_pages": [
+      {
+        "page": "6-viewsets-and-routers",
+        "url": "https://www.django-rest-framework.org/tutorial/6-viewsets-and-routers/"
+      },
+      {
+        "page": "viewsets",
+        "url": "https://www.django-rest-framework.org/api-guide/viewsets/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q048",
+    "category": "intent_driven",
+    "user_input": "During tests I want to exercise my views like a client would — hitting URLs with get/post/put and JSON bodies — not building requests by hand. What does DRF give me?",
+    "reference": "APIClient, which extends Django's test Client and supports the same .get()/.post()/.put()/.patch()/.delete()/.head()/.options() interface.",
+    "reference_contexts": [
+      "The APIClient class supports the same request interface as Django's standard Client class.",
+      "This means that the standard .get() , .post() , .put() , .patch() , .delete() , .head() and .options() methods are all available."
+    ],
+    "source_pages": [
+      {
+        "page": "testing",
+        "url": "https://www.django-rest-framework.org/api-guide/testing/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q049",
+    "category": "intent_driven",
+    "user_input": "I want to read one of DRF's effective settings (like the default auth classes) from my own code, respecting any overrides. What object should I use?",
+    "reference": "Import api_settings from rest_framework.settings and read the attribute; it checks user-defined settings first, falls back to defaults, and auto-imports classes referenced by string path.",
+    "reference_contexts": [
+      "If you need to access the values of REST framework's API settings in your project, you should use the api_settings object.",
+      "DEFAULT_AUTHENTICATION_CLASSES ) The api_settings object will check for any user-defined settings, and otherwise fall back to the default values."
+    ],
+    "source_pages": [
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q050",
+    "category": "intent_driven",
+    "user_input": "I just want the quickest possible auth to try my API from curl in early development. What's the simplest built-in scheme and what should I move off later?",
+    "reference": "BasicAuthentication is simplest — it signs against username/password and is generally only appropriate for testing. Before production move to a stronger scheme (or at least serve only over https).",
+    "reference_contexts": [
+      "Basic authentication is generally only appropriate for testing.",
+      "For example: WWW - Authenticate : Basic realm = \"api\" Note If you use BasicAuthentication in production you must ensure that your API is only available over https .",
+      "A list or tuple of authentication classes, that determines the default set of authenticators used when accessing the request.user or request.auth properties."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q051",
+    "category": "multi_hop",
+    "user_input": "When an unauthenticated request is rejected I sometimes get 401 and sometimes 403. What actually decides which one DRF returns?",
+    "reference": "It hinges on whether the first/highest-priority authentication class uses a WWW-Authenticate header: if it does, an unauthenticated denial is 401 with that header; if not, it's 403. A request that authenticated but lacked permission is always 403.",
+    "reference_contexts": [
+      "The first authentication class set on the view is used when determining the type of response .",
+      "The request was not successfully authenticated, and the highest priority authentication class does not use WWW-Authenticate headers.",
+      "HTTP 401 Unauthorized HTTP 403 Permission Denied HTTP 401 responses must always include a WWW-Authenticate header, that instructs the client how to authenticate.",
+      "Signature: AuthenticationFailed(detail=None, code=None) Raised when an incoming request includes incorrect authentication."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      },
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      },
+      {
+        "page": "exceptions",
+        "url": "https://www.django-rest-framework.org/api-guide/exceptions/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q052",
+    "category": "multi_hop",
+    "user_input": "I set permission_classes on a generic view but object-level checks don't run on my detail endpoint unless I use generics. When does DRF run object-level checks, and what do I do in my own view?",
+    "reference": "Generic views run object-level permissions when .get_object() is called. In a custom view you must call self.check_object_permissions(request, obj) after retrieving the object, and note DRF's built-in classes (except DjangoObjectPermissions) don't implement has_object_permission unless you subclass them.",
+    "reference_contexts": [
+      "Object level permissions are run by REST framework's generic views when .get_object() is called.",
+      "If you're writing your own views and want to enforce object level permissions, or if you override the get_object method on a generic view, then you'll need to explicitly call the .check_object_permissions(request, obj) method on the view at the point at which you've retrieved the object.",
+      "request , obj ) return obj Note With the exception of DjangoObjectPermissions , the provided permission classes in rest_framework.permissions do not implement the methods necessary to check object permissions.",
+      "Returns an object instance that should be used for detail views."
+    ],
+    "source_pages": [
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      },
+      {
+        "page": "generic-views",
+        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q053",
+    "category": "multi_hop",
+    "user_input": "I'm weighing limiting a queryset vs permission classes vs the serializer to restrict access. What can each control, especially for list vs create?",
+    "reference": "queryset/get_queryset limits which existing objects are visible globally; permission_classes do action/object-level checks but object-level only applies to retrieve/modify/delete; serializer_class restricts at instance level on input/output. Object-level checks don't run on create because get_object isn't called.",
+    "reference_contexts": [
+      "REST framework offers three different methods to customize access restrictions on a case-by-case basis.",
+      "These apply in different scenarios and have different effects and limitations.",
+      "Because the get_object() method is not called, object level permissions from the has_object_permission() method are not applied when creating objects.",
+      "The simplest way to filter the queryset of any view that subclasses GenericAPIView is to override the .get_queryset() method.",
+      "The ModelSerializer class provides a shortcut that lets you automatically create a Serializer class with fields that correspond to the Model fields."
+    ],
+    "source_pages": [
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      },
+      {
+        "page": "filtering",
+        "url": "https://www.django-rest-framework.org/api-guide/filtering/"
+      },
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q054",
+    "category": "multi_hop",
+    "user_input": "I'm putting together a \"snippets\" API and want the whole thing to hang together: each snippet has an owner, anyone can read them, only the owner may edit or delete, and I really don't want to hand-write a urls.py entry for every list/detail route. Which DRF pieces — serializer, permissions, viewset, router — do I wire together and how do they fit?",
+    "reference": "Serialize with a ModelSerializer, protect writes with IsAuthenticatedOrReadOnly plus a custom IsOwnerOrReadOnly object permission, expose it as a ModelViewSet (which supplies the full CRUD actions), and register that viewset with a router so the list/detail URLs are generated for you automatically.",
+    "reference_contexts": [
+      "BasePermission ): \"\"\" Custom permission to only allow owners of an object to edit it.",
+      "Also note that although this class provides the complete set of create/list/retrieve/update/destroy actions by default, you can restrict the available operations by using the standard permission classes.",
+      "The conventions for wiring up resources into views and urls can be handled automatically, using a Router class.",
+      "The ModelSerializer class provides a shortcut that lets you automatically create a Serializer class with fields that correspond to the Model fields.",
+      "REST framework adds support for automatic URL routing to Django, and provides you with a simple, quick and consistent way of wiring your view logic to a set of URLs."
+    ],
+    "source_pages": [
+      {
+        "page": "4-authentication-and-permissions",
+        "url": "https://www.django-rest-framework.org/tutorial/4-authentication-and-permissions/"
+      },
+      {
+        "page": "viewsets",
+        "url": "https://www.django-rest-framework.org/api-guide/viewsets/"
+      },
+      {
+        "page": "6-viewsets-and-routers",
+        "url": "https://www.django-rest-framework.org/tutorial/6-viewsets-and-routers/"
+      },
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      },
+      {
+        "page": "routers",
+        "url": "https://www.django-rest-framework.org/api-guide/routers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q055",
+    "category": "multi_hop",
+    "user_input": "Reversing URLs in a versioned API gives links pointing at the wrong version. How do reverse() and versioning interact, and what must I pass?",
+    "reference": "DRF's reverse ties into the versioning scheme, so pass the current request as a keyword argument; reverse then applies the URL transformations for that request's version and returns a fully qualified URL from the request's host/port.",
+    "reference_contexts": [
+      "The reverse function included by REST framework ties in with the versioning scheme.",
+      "reverse import reverse reverse ( 'bookings-list' , request = request ) The above function will apply any URL transformations appropriate to the request version.",
+      "Signature: reverse(viewname, *args, **kwargs) Has the same behavior as django.urls.reverse , except that it returns a fully qualified URL, using the request to determine the host and port."
+    ],
+    "source_pages": [
+      {
+        "page": "versioning",
+        "url": "https://www.django-rest-framework.org/api-guide/versioning/"
+      },
+      {
+        "page": "reverse",
+        "url": "https://www.django-rest-framework.org/api-guide/reverse/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q056",
+    "category": "multi_hop",
+    "user_input": "I want per-view control over both the authentication scheme and the permissions on one endpoint. How do these relate and how do I set both on one APIView?",
+    "reference": "They're separate but sequential: authentication identifies the request and runs first (setting request.user/request.auth), then permissions use that to allow or deny. Set authentication_classes and permission_classes together — authentication alone never grants access.",
+    "reference_contexts": [
+      "Note Don't forget that authentication by itself won't allow or disallow an incoming request , it simply identifies the credentials that the request was made with.",
+      "Permission checks will typically use the authentication information in the request.user and request.auth properties to determine if the incoming request should be permitted.",
+      "— Apple Developer Documentation Together with authentication and throttling , permissions determine whether a request should be granted or denied access.",
+      "HTTP/1.1 420 Enhance Your Calm Twitter API rate limiting response Throttling is similar to permissions , in that it determines if a request should be authorized."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      },
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      },
+      {
+        "page": "throttling",
+        "url": "https://www.django-rest-framework.org/api-guide/throttling/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q057",
+    "category": "multi_hop",
+    "user_input": "When I POST invalid data, where does the flow that turns a serializer error into a 400 actually come from — the serializer or the view?",
+    "reference": "Both cooperate: the serializer's is_valid(raise_exception=True) raises ValidationError, the generic views use raise_exception=True, and DRF's default exception handler converts it to a 400.",
+    "reference_contexts": [
+      "The .is_valid() method takes an optional raise_exception flag that will cause it to raise a serializers.ValidationError exception if there are validation errors.",
+      "is_valid ( raise_exception = True ) The generic views use the raise_exception=True flag, which means that you can override the style of validation error responses globally in your API.",
+      "By default this exception results in a response with the HTTP status code \"400 Bad Request\"."
+    ],
+    "source_pages": [
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      },
+      {
+        "page": "exceptions",
+        "url": "https://www.django-rest-framework.org/api-guide/exceptions/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q058",
+    "category": "multi_hop",
+    "user_input": "I need to inject the current user at save and also run extra validation right before the DB write in a generic view. Which hook, and how does raising a ValidationError there behave?",
+    "reference": "Override perform_create (and perform_update): it's the save hook for implicit request data, and you can raise a ValidationError inside it to validate at the point of database save — that error flows through DRF's handling to a 400.",
+    "reference_contexts": [
+      "These hooks are particularly useful for setting attributes that are implicit in the request, but are not part of the request data.",
+      "user , modified = instance ) You can also use these hooks to provide additional validation, by raising a ValidationError() .",
+      "This can be useful if you need some validation logic to apply at the point of database save.",
+      "Signature: ValidationError(detail=None, code=None) The ValidationError exception is slightly different from the other APIException classes: The detail argument may be a list or dictionary of error details, and may also be a nested data structure."
+    ],
+    "source_pages": [
+      {
+        "page": "generic-views",
+        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
+      },
+      {
+        "page": "exceptions",
+        "url": "https://www.django-rest-framework.org/api-guide/exceptions/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q059",
+    "category": "multi_hop",
+    "user_input": "I have a HyperlinkedModelSerializer with a custom lookup_field and my hyperlinks won't resolve. What must line up between the view and the serializer?",
+    "reference": "Both sides must agree: on the view, lookup_field is the model field used for object lookup (default 'pk'), and for hyperlinked APIs you must make sure both the API views and the serializer classes set the lookup fields when using a custom value.",
+    "reference_contexts": [
+      "lookup_field - The model field that should be used for performing object lookup of individual model instances.",
+      "Note that when using hyperlinked APIs you'll need to ensure that both the API views and the serializer classes set the lookup fields if you need to use a custom value.",
+      "lookup_url_kwarg - The URL keyword argument that should be used for object lookup.",
+      "HyperlinkedRelatedField may be used to represent the target of the relationship using a hyperlink.",
+      "When instantiating a HyperlinkedModelSerializer you must include the current request in the serializer context, for example: serializer = AccountSerializer ( queryset , context ={ 'request' : request }) Doing so will ensure that the hyperlinks can include an appropriate hostname, so that the resulting representation uses fully qualified URLs, such as: http : //api.example.com/accounts/1/ Rather than relative URLs, such as: /accounts/ 1 / If you do want to use relative URLs, you should explicitly pass {'request': None} in the serializer context."
+    ],
+    "source_pages": [
+      {
+        "page": "generic-views",
+        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
+      },
+      {
+        "page": "relations",
+        "url": "https://www.django-rest-framework.org/api-guide/relations/"
+      },
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q060",
+    "category": "multi_hop",
+    "user_input": "Across serializers, when should I worry about N+1 queries — both for a related field and for the source argument?",
+    "reference": "Any relational serialization can trigger a hit per object, so it's the programmer's job to optimize queries (e.g. prefetch). The same applies to source when it walks a relational ORM attribute — a known N+1 risk to prefetch around.",
+    "reference_contexts": [
+      "It is the programmer's responsibility to optimize queries to avoid additional database hits which could occur while using such a serializer.",
+      "For example, the following serializer would lead to a database hit each time evaluating the tracks field if it is not prefetched: class AlbumSerializer ( serializers .",
+      "Beware of possible n+1 problems when using source attribute if you are accessing a relational orm model."
+    ],
+    "source_pages": [
+      {
+        "page": "relations",
+        "url": "https://www.django-rest-framework.org/api-guide/relations/"
+      },
+      {
+        "page": "fields",
+        "url": "https://www.django-rest-framework.org/api-guide/fields/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q061",
+    "category": "multi_hop",
+    "user_input": "I want to hand out one auth token per user automatically at account creation, and also backfill tokens for existing users. What's the pattern for both?",
+    "reference": "For new users, catch the user post_save signal and Token.objects.create(user=instance) when created; for existing users, loop User.objects.all() and Token.objects.get_or_create(user=user).",
+    "reference_contexts": [
+      "If you want every user to have an automatically generated Token, you can simply catch the User's post_save signal.",
+      "If you've already created some users, you can generate tokens for all existing users like this: from django .",
+      "create ( user = instance ) Note that you'll want to ensure you place this code snippet in an installed models.py module, or some other location that will be imported by Django on startup.",
+      "A list or tuple of authentication classes, that determines the default set of authenticators used when accessing the request.user or request.auth properties."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q062",
+    "category": "multi_hop",
+    "user_input": "How does DRF's Request relate to the parsers, and what does request.data give me that request.POST doesn't?",
+    "reference": "request.data is DRF's flexible replacement for request.POST: it handles arbitrary parsed content for POST, PUT and PATCH, not just form data. The parser classes DRF selects do the actual parsing, so request.data works across formats like JSON.",
+    "reference_contexts": [
+      "The core functionality of the Request object is the request.data attribute, which is similar to request.POST , but more useful for working with Web APIs.",
+      "request.data can handle incoming json requests, but it can also handle other formats.",
+      "The wrappers also provide behavior such as returning 405 Method Not Allowed responses when appropriate, and handling any ParseError exceptions that occur when accessing request.data with malformed input.",
+      "request.data will be populated with a dictionary of data.",
+      "request.query_params is a more correctly named synonym for request.GET ."
+    ],
+    "source_pages": [
+      {
+        "page": "2-requests-and-responses",
+        "url": "https://www.django-rest-framework.org/tutorial/2-requests-and-responses/"
+      },
+      {
+        "page": "parsers",
+        "url": "https://www.django-rest-framework.org/api-guide/parsers/"
+      },
+      {
+        "page": "requests",
+        "url": "https://www.django-rest-framework.org/api-guide/requests/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q063",
+    "category": "multi_hop",
+    "user_input": "I refactored duplicate views into ViewSets and registered them with a router, but lost my hand-written API root view. Does anything replace it, and how do registrations map to URLs?",
+    "reference": "The DefaultRouter automatically creates the API root view, so you can delete the hand-written one. Each register() call takes a URL prefix and the viewset, and the router determines the URL patterns from those registrations.",
+    "reference_contexts": [
+      "The DefaultRouter class we're using also automatically creates the API root view for us, so we can now delete the api_root function from our views module.",
+      "urls )), ] Registering the ViewSets with the router is similar to providing a urlpattern.",
+      "urls There are two mandatory arguments to the register() method: prefix - The URL prefix to use for this set of routes.",
+      "The ModelViewSet class inherits from GenericAPIView and includes implementations for various actions, by mixing in the behavior of the various mixin classes."
+    ],
+    "source_pages": [
+      {
+        "page": "6-viewsets-and-routers",
+        "url": "https://www.django-rest-framework.org/tutorial/6-viewsets-and-routers/"
+      },
+      {
+        "page": "routers",
+        "url": "https://www.django-rest-framework.org/api-guide/routers/"
+      },
+      {
+        "page": "viewsets",
+        "url": "https://www.django-rest-framework.org/api-guide/viewsets/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q064",
+    "category": "multi_hop",
+    "user_input": "I want custom OPTIONS metadata and also correct renderer selection via content negotiation. How does each mechanism decide what to return?",
+    "reference": "Metadata is a configurable mechanism for how the API answers OPTIONS requests (returning schema/resource info), while content negotiation is the separate process of selecting one of several representations based on client or server preferences.",
+    "reference_contexts": [
+      "REST framework includes a configurable mechanism for determining how your API should respond to OPTIONS requests.",
+      "Content negotiation is the process of selecting one of multiple possible representations to return to a client, based on client or server preferences.",
+      "REST framework uses a simple style of content negotiation to determine which media type should be returned to a client, based on the available renderers, the priorities of each of those renderers, and the client's Accept: header."
+    ],
+    "source_pages": [
+      {
+        "page": "metadata",
+        "url": "https://www.django-rest-framework.org/api-guide/metadata/"
+      },
+      {
+        "page": "content-negotiation",
+        "url": "https://www.django-rest-framework.org/api-guide/content-negotiation/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q065",
+    "category": "multi_hop",
+    "user_input": "I want to restrict access by Django model permissions but keep getting errors on a view. What must the view expose for DjangoModelPermissions, and which HTTP methods map to which model permissions?",
+    "reference": "DjangoModelPermissions must only be applied to views with a .queryset property or get_queryset() method. POST needs add, PUT/PATCH need change, DELETE needs delete; the user must also be authenticated.",
+    "reference_contexts": [
+      "This permission must only be applied to views that have a .queryset property or get_queryset() method.",
+      "POST requests require the user to have the add permission on the model.",
+      "Authorization will only be granted if the user is authenticated and has the relevant model permissions assigned.",
+      "queryset - The queryset that should be used for returning objects from this view."
+    ],
+    "source_pages": [
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      },
+      {
+        "page": "generic-views",
+        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q066",
+    "category": "multi_hop",
+    "user_input": "Setting permission_classes on my view wipes out the global defaults. Is that expected, and how do the global default permissions get established?",
+    "reference": "Yes: setting permission classes via the class attribute or decorators tells the view to ignore the settings default list. That default is configured globally with DEFAULT_PERMISSION_CLASSES, which otherwise defaults to AllowAny (unrestricted).",
+    "reference_contexts": [
+      "response import Response @api_view ([ 'GET' ]) @permission_classes ([ IsAuthenticated ]) def example_view ( request , format = None ): content = { 'status' : 'request was permitted' } return Response ( content ) Note When you set new permission classes via the class attribute or decorators you're telling the view to ignore the default list set in the settings.py file.",
+      "The default permission policy may be set globally, using the DEFAULT_PERMISSION_CLASSES setting.",
+      "REST_FRAMEWORK = { 'DEFAULT_PERMISSION_CLASSES' : [ 'rest_framework.permissions.IsAuthenticated' , ] } If not specified, this setting defaults to allowing unrestricted access: 'DEFAULT_PERMISSION_CLASSES' : [ 'rest_framework.permissions.AllowAny' , ] You can also set the authentication policy on a per-view, or per-viewset basis, using the APIView class-based views.",
+      "A list or tuple of permission classes, that determines the default set of permissions checked at the start of a view."
+    ],
+    "source_pages": [
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q067",
+    "category": "multi_hop",
+    "user_input": "I want to embed a full nested object in output and also write it back. What does DRF do automatically for reads, and where must I write code?",
+    "reference": "For reads, nested relationships are expressed by using serializers as fields (add many=True for to-many). Writing isn't automatic: because nested creates/updates are ambiguous, REST framework 3 requires you to write .create()/.update() explicitly.",
+    "reference_contexts": [
+      "Such nested relationships can be expressed by using serializers as fields.",
+      "If the field is used to represent a to-many relationship, you should add the many=True flag to the serializer field.",
+      "save () return instance Because the behavior of nested creates and updates can be ambiguous, and may require complex dependencies between related models, REST framework 3 requires you to always write these methods explicitly."
+    ],
+    "source_pages": [
+      {
+        "page": "relations",
+        "url": "https://www.django-rest-framework.org/api-guide/relations/"
+      },
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q068",
+    "category": "multi_hop",
+    "user_input": "The browsable API shows no login control and I also want to restyle it. How do I add login/logout routes and where does the styling come from?",
+    "reference": "Add DRF's default login/logout routes by including 'rest_framework.urls' under the 'rest_framework' namespace. The browsable API is built on Bootstrap, so restyle it with a rest_framework/api.html template extending rest_framework/base.html.",
+    "reference_contexts": [
+      "DRF provides default routes for this which you can add to your urlconf: from django .",
+      "To customize the default style, create a template called rest_framework/api.html that extends from rest_framework/base.html .",
+      "The browsable API is built with Twitter's Bootstrap (v 3.4.1), making it easy to customize the look-and-feel.",
+      "By default the response content will be rendered with the highest priority renderer apart from BrowsableAPIRenderer ."
+    ],
+    "source_pages": [
+      {
+        "page": "browsable-api",
+        "url": "https://www.django-rest-framework.org/topics/browsable-api/"
+      },
+      {
+        "page": "renderers",
+        "url": "https://www.django-rest-framework.org/api-guide/renderers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q069",
+    "category": "multi_hop",
+    "user_input": "I want to pass extra data (like the request) into my serializer beyond the object, and I know hyperlinked fields need it. What's the general mechanism and one case that requires it?",
+    "reference": "Provide arbitrary extra data via the serializer's context argument. A common case that requires it is a serializer with hyperlinked relations, which needs the current request to generate fully qualified URLs.",
+    "reference_contexts": [
+      "There are some cases where you need to provide extra context to the serializer in addition to the object being serialized.",
+      "You can provide arbitrary additional context by passing a context argument when instantiating the serializer.",
+      "One common case is if you're using a serializer that includes hyperlinked relations, which requires the serializer to have access to the current request so that it can properly generate fully qualified URLs.",
+      "HyperlinkedRelatedField may be used to represent the target of the relationship using a hyperlink."
+    ],
+    "source_pages": [
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      },
+      {
+        "page": "relations",
+        "url": "https://www.django-rest-framework.org/api-guide/relations/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q070",
+    "category": "multi_hop",
+    "user_input": "My JSON-only API shows Django's HTML 500/400 pages when things blow up. What does DRF offer, and separately how do I make validation errors report per-field?",
+    "reference": "DRF provides two error views for generic JSON 500 and 400 responses (wire them like Django's custom error views). For validation, raise a ValidationError whose detail is a dictionary to report field-level errors during object-level validation in validate().",
+    "reference_contexts": [
+      "Django REST Framework provides two error views suitable for providing generic JSON 500 Server Error and 400 Bad Request responses.",
+      "By using a dictionary, you can specify field-level errors while performing object-level validation in the validate() method of a serializer.",
+      "Signature: ValidationError(detail=None, code=None) The ValidationError exception is slightly different from the other APIException classes: The detail argument may be a list or dictionary of error details, and may also be a nested data structure.",
+      "A string representing the function that should be used when returning a response for any given exception."
+    ],
+    "source_pages": [
+      {
+        "page": "exceptions",
+        "url": "https://www.django-rest-framework.org/api-guide/exceptions/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q071",
+    "category": "multi_hop",
+    "user_input": "In custom authentication, failing vs simply not applying behaves differently. What should authenticate() return or raise in each case, and how does it affect other auth classes?",
+    "reference": "If auth isn't attempted, return None so other schemes still get checked. If it's attempted but fails, raise AuthenticationFailed, which returns an error response immediately regardless of permissions and without checking other schemes.",
+    "reference_contexts": [
+      "Typically the approach you should take is: If authentication is not attempted, return None . Any other authentication schemes also in use will still be checked.",
+      "If authentication is attempted but fails, raise an AuthenticationFailed exception.",
+      "In some circumstances instead of returning None , you may want to raise an AuthenticationFailed exception from the .authenticate() method.",
+      "Signature: AuthenticationFailed(detail=None, code=None) Raised when an incoming request includes incorrect authentication."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      },
+      {
+        "page": "exceptions",
+        "url": "https://www.django-rest-framework.org/api-guide/exceptions/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q072",
+    "category": "multi_hop",
+    "user_input": "In a custom auth class, whether an unauthenticated denial becomes 401 or 403 depends on a method I optionally override. Which one, and what happens if I don't implement it?",
+    "reference": "authenticate_header(self, request): if implemented, its return value becomes the WWW-Authenticate header on a 401. If not overridden, the scheme returns 403 Forbidden for denied unauthenticated requests.",
+    "reference_contexts": [
+      "If implemented, it should return a string that will be used as the value of the WWW-Authenticate header in a HTTP 401 Unauthorized response.",
+      "If the .authenticate_header() method is not overridden, the authentication scheme will return HTTP 403 Forbidden responses when an unauthenticated request is denied access.",
+      "You may also override the .authenticate_header(self, request) method.",
+      "The request was not successfully authenticated, and the highest priority authentication class does use WWW-Authenticate headers.",
+      "Signature: AuthenticationFailed(detail=None, code=None) Raised when an incoming request includes incorrect authentication."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      },
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      },
+      {
+        "page": "exceptions",
+        "url": "https://www.django-rest-framework.org/api-guide/exceptions/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q073",
+    "category": "multi_hop",
+    "user_input": "I want clients to set page size per request but keep a hard ceiling, and configure it per-view or globally. Which attributes do that and how do I apply the class?",
+    "reference": "Subclass a pagination class and set page_size_query_param (the query param clients use) and max_page_size (the ceiling); apply per view via pagination_class or globally via DEFAULT_PAGINATION_CLASS.",
+    "reference_contexts": [
+      "page_size_query_param - If set, this is a string value indicating the name of a query parameter that allows the client to set the page size on a per-request basis.",
+      "max_page_size - If set, this is a numeric value indicating the maximum allowable requested page size.",
+      "You can also set the pagination class on an individual view by using the pagination_class attribute.",
+      "The default class to use for queryset pagination."
+    ],
+    "source_pages": [
+      {
+        "page": "pagination",
+        "url": "https://www.django-rest-framework.org/api-guide/pagination/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q074",
+    "category": "multi_hop",
+    "user_input": "Under load my UserRateThrottle sometimes lets a few extra requests through, and I want throttle state stored in a non-default cache. Are these related, and how do I point throttling at another cache?",
+    "reference": "The extra requests are expected: the built-in throttles are open to race conditions under high concurrency. Storage is separate — subclass the throttle, set its cache attribute (e.g. caches['alternate']), and register the class in DEFAULT_THROTTLE_CLASSES.",
+    "reference_contexts": [
+      "The built-in throttle implementations are open to race conditions , so under high concurrency they may allow a few extra requests through.",
+      "If you need to use a cache other than 'default' , you can do so by creating a custom throttle class and setting the cache attribute.",
+      "A list or tuple of throttle classes, that determines the default set of throttles checked at the start of a view."
+    ],
+    "source_pages": [
+      {
+        "page": "throttling",
+        "url": "https://www.django-rest-framework.org/api-guide/throttling/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q075",
+    "category": "multi_hop",
+    "user_input": "I registered a ModelViewSet that uses get_queryset() instead of a queryset attribute and the router won't build a basename. Why does the viewset choice force my hand, and what's the rule?",
+    "reference": "The router derives the basename from the viewset's queryset attribute; a ModelViewSet with only get_queryset() has none, so you must pass basename at router registration. Rule: no queryset attribute means you must set basename when registering.",
+    "reference_contexts": [
+      "all () Note however that upon removal of the queryset property from your ViewSet , any associated router will be unable to derive the basename of your Model automatically, and so you will have to specify the basename kwarg as part of your router registration .",
+      "Note that if the viewset does not include a queryset attribute then you must set basename when registering the viewset."
+    ],
+    "source_pages": [
+      {
+        "page": "viewsets",
+        "url": "https://www.django-rest-framework.org/api-guide/viewsets/"
+      },
+      {
+        "page": "routers",
+        "url": "https://www.django-rest-framework.org/api-guide/routers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q076",
+    "category": "debugging",
+    "user_input": "Moved a couple of function-based endpoints onto a viewset this morning and now `runserver` won't come up at all -- it dies during startup, before it prints the port. The only frame of the traceback that isn't Django's autoreloader is inside `rest_framework/routers.py`, in `get_default_basename`, and it ends in an ImproperlyConfigured. Nothing else in the project changed.\n\n# views.py\nfrom rest_framework import viewsets\nfrom rest_framework.permissions import IsAuthenticated\nfrom .models import Account\nfrom .serializers import AccountSerializer\n\nclass AccountViewSet(viewsets.ModelViewSet):\n    serializer_class = AccountSerializer\n    permission_classes = [IsAuthenticated]\n\n    def get_queryset(self):\n        return Account.objects.filter(owner=self.request.user)\n\n# urls.py\nfrom rest_framework.routers import DefaultRouter\nfrom .views import AccountViewSet\n\nrouter = DefaultRouter()\nrouter.register(r'accounts', AccountViewSet)\nurlpatterns = router.urls\n\nDjango 5.0, DRF 3.15. What am I supposed to change?",
+    "reference": "Your viewset defines get_queryset() but no queryset attribute, so the router can't derive a basename. Pass it explicitly: router.register(r'accounts', AccountViewSet, basename='account'). The rule is that a viewset without a queryset attribute must set basename at registration.",
+    "reference_contexts": [
+      "If unset the basename will be automatically generated based on the queryset attribute of the viewset, if it has one.",
+      "all () Note however that upon removal of the queryset property from your ViewSet , any associated router will be unable to derive the basename of your Model automatically, and so you will have to specify the basename kwarg as part of your router registration ."
+    ],
+    "source_pages": [
+      {
+        "page": "routers",
+        "url": "https://www.django-rest-framework.org/api-guide/routers/"
+      },
+      {
+        "page": "viewsets",
+        "url": "https://www.django-rest-framework.org/api-guide/viewsets/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q077",
+    "category": "debugging",
+    "user_input": "Signup endpoint returns a clean 201 and the user row is there, but the related row I send alongside it is just... not there. No exception, nothing in the logs, no validation error -- the response body even echoes back what I sent.\n\n# models.py\nclass Profile(models.Model):\n    user = models.OneToOneField(User, on_delete=models.CASCADE)\n    bio = models.CharField(max_length=200, blank=True)\n\n# serializers.py\nclass ProfileSerializer(serializers.ModelSerializer):\n    class Meta:\n        model = Profile\n        fields = ['bio']\n\nclass UserSerializer(serializers.ModelSerializer):\n    profile = ProfileSerializer()\n\n    class Meta:\n        model = User\n        fields = ['username', 'email', 'profile']\n\n# views.py\nclass UserCreate(generics.CreateAPIView):\n    queryset = User.objects.all()\n    serializer_class = UserSerializer\n\nPOST body: {\"username\": \"jo\", \"email\": \"jo@x.com\", \"profile\": {\"bio\": \"hi\"}}\nProfile.objects.count() == 0 afterwards.\n\nI've checked the payload shape a dozen times. What's actually happening here?",
+    "reference": "ModelSerializer's default .create()/.update() don't support writable nested representations, so the nested profile is dropped. Write a .create() on UserSerializer that pops the profile data and creates the Profile yourself (or use the DRF Writable Nested package).",
+    "reference_contexts": [
+      "The default ModelSerializer .create() and .update() methods do not include support for writable nested representations.",
+      "If you're supporting writable nested representations you'll need to write .create() or .update() methods that handle saving multiple objects.",
+      "The following example demonstrates how you might handle creating a user with a nested profile object.",
+      "Such nested relationships can be expressed by using serializers as fields."
+    ],
+    "source_pages": [
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      },
+      {
+        "page": "relations",
+        "url": "https://www.django-rest-framework.org/api-guide/relations/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q078",
+    "category": "debugging",
+    "user_input": "Our SPA and the API are served from the same domain, user is logged in, and reads work perfectly -- every list and detail endpoint returns data. The moment the app tries to write anything it comes back 403. Same user, same session cookie, same browser tab. If I do the identical write from DRF's browsable API it goes through fine, which is what's confusing me.\n\n# settings.py\nREST_FRAMEWORK = {\n    'DEFAULT_AUTHENTICATION_CLASSES': [\n        'rest_framework.authentication.SessionAuthentication',\n    ],\n    'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],\n}\n\n// front-end\nfetch('/api/notes/', {\n  method: 'POST',\n  credentials: 'same-origin',\n  headers: {'Content-Type': 'application/json'},\n  body: JSON.stringify({title: 'idea'})\n})\n// -> 403\n\nThe permission is only IsAuthenticated and the user clearly is authenticated. Why would only the writes be refused?",
+    "reference": "With SessionAuthentication, unsafe methods still need CSRF protection. Only authenticated requests require CSRF tokens, so your session POST fails without one. Include a valid CSRF token (e.g. the X-CSRFToken header) for unsafe methods like POST, PUT, PATCH and DELETE.",
+    "reference_contexts": [
+      "If you're using an AJAX-style API with SessionAuthentication, you'll need to make sure you include a valid CSRF token for any \"unsafe\" HTTP method calls, such as PUT , PATCH , POST or DELETE requests.",
+      "This means that only authenticated requests require CSRF tokens, and anonymous requests may be sent without CSRF tokens.",
+      "AJAX requests that are made within the same context as the API they are interacting with will typically use SessionAuthentication ."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      },
+      {
+        "page": "ajax-csrf-cors",
+        "url": "https://www.django-rest-framework.org/topics/ajax-csrf-cors/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q079",
+    "category": "debugging",
+    "user_input": "Built my own permission class so people can only see their own notes. Logged in as user B I can open user A's note and read the whole thing. I dropped a print() at the top of the method that compares owners and it never appears in the console -- not once, on any request.\n\n# permissions.py\nclass IsOwner(permissions.BasePermission):\n    def has_object_permission(self, request, view, obj):\n        return obj.owner == request.user\n\n# views.py\nclass NoteDetail(APIView):\n    permission_classes = [IsOwner]\n\n    def get(self, request, pk):\n        note = Note.objects.get(pk=pk)\n        return Response(NoteSerializer(note).data)\n\nThe class is definitely wired up (I typo'd the import earlier and got an ImportError, so it's being loaded). Why is my check dead code?",
+    "reference": "Object-level permission checks only run when the view calls check_object_permissions. Generic views do this via get_object, but in your own APIView you must call self.check_object_permissions(request, note) after fetching the object.",
+    "reference_contexts": [
+      "Also note that in order for the instance-level checks to run, the view code should explicitly call .check_object_permissions(request, obj) .",
+      "If you're writing your own views and want to enforce object level permissions, or if you override the get_object method on a generic view, then you'll need to explicitly call the .check_object_permissions(request, obj) method on the view at the point at which you've retrieved the object.",
+      "Returns an object instance that should be used for detail views."
+    ],
+    "source_pages": [
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      },
+      {
+        "page": "generic-views",
+        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q080",
+    "category": "debugging",
+    "user_input": "The detail endpoint behaves exactly right -- user B gets a 403 fetching user A's purchase. The list endpoint on the same model, with the same permission classes, hands back every row in the table to everyone.\n\n# permissions.py\nclass IsOwner(permissions.BasePermission):\n    def has_object_permission(self, request, view, obj):\n        return obj.owner == request.user\n\n# views.py\nclass PurchaseList(generics.ListAPIView):\n    queryset = Purchase.objects.all()\n    serializer_class = PurchaseSerializer\n    permission_classes = [IsAuthenticated, IsOwner]\n\nGET /purchases/ as user B -> 200, includes user A's purchases.\n\nWhy does the same permission work on one and not the other, and how am I supposed to scope a list response?",
+    "reference": "Object-level permissions aren't applied to each item of a list (for performance), so the list returns everything the queryset yields. Restrict the data by filtering the queryset itself — override get_queryset to return only request.user's rows.",
+    "reference_contexts": [
+      "For performance reasons the generic views will not automatically apply object level permissions to each instance in a queryset when returning a list of objects.",
+      "Often when you're using object level permissions you'll also want to filter the queryset appropriately, to ensure that users only have visibility onto instances that they are permitted to view.",
+      "The simplest way to filter the queryset of any view that subclasses GenericAPIView is to override the .get_queryset() method."
+    ],
+    "source_pages": [
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      },
+      {
+        "page": "filtering",
+        "url": "https://www.django-rest-framework.org/api-guide/filtering/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q081",
+    "category": "debugging",
+    "user_input": "Our mobile client can't follow the links we return -- it gets \"/accounts/1/\" and has nothing to prepend to it. On a couple of other endpoints the same serializer doesn't render at all, it raises an assertion out of the serializer before the response is built.\n\n# serializers.py\nclass AccountSerializer(serializers.HyperlinkedModelSerializer):\n    class Meta:\n        model = Account\n        fields = ['url', 'name']\n\n# views.py\nclass AccountList(APIView):\n    def get(self, request):\n        accounts = Account.objects.all()\n        data = AccountSerializer(accounts, many=True).data\n        return Response(data)\n\nOddly, the endpoints where a colleague used ListAPIView instead return full https://... links with no extra code. Same serializer. What's different?",
+    "reference": "HyperlinkedModelSerializer needs the current request in its context to build absolute URLs. Pass context={'request': request}: AccountSerializer(accounts, many=True, context={'request': request}). Generic views add this automatically.",
+    "reference_contexts": [
+      "When instantiating a HyperlinkedModelSerializer you must include the current request in the serializer context, for example: serializer = AccountSerializer ( queryset , context ={ 'request' : request }) Doing so will ensure that the hyperlinks can include an appropriate hostname, so that the resulting representation uses fully qualified URLs, such as: http : //api.example.com/accounts/1/ Rather than relative URLs, such as: /accounts/ 1 / If you do want to use relative URLs, you should explicitly pass {'request': None} in the serializer context."
+    ],
+    "source_pages": [
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q082",
+    "category": "debugging",
+    "user_input": "Staging and production both 401 every single request. Local dev is fine. Same DRF settings module, same database dump, and I've verified the token by copy-pasting it out of the prod DB and hitting local with it -- 200.\n\ncurl https://api.example.com/things/ -H 'Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b'\n# {\"detail\":\"Authentication credentials were not provided.\"}\n\nNote it says \"not provided\" even though curl -v shows the header going out on the wire. Locally we run `manage.py runserver`; staging and prod are Apache 2.4 with mod_wsgi behind an ELB. TLS terminates at the load balancer. Where do I even start looking?",
+    "reference": "Apache/mod_wsgi doesn't forward the Authorization header to the WSGI app by default, so DRF never sees the token. Set the WSGIPassAuthorization directive to 'On' (server, vhost, directory, or .htaccess) to pass it through.",
+    "reference_contexts": [
+      "Note that if deploying to Apache using mod_wsgi , the authorization header is not passed through to a WSGI application by default, as it is assumed that authentication will be handled by Apache, rather than at an application level.",
+      "This can be done by specifying the WSGIPassAuthorization directive in the appropriate context and setting it to 'On' ."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q083",
+    "category": "debugging",
+    "user_input": "This endpoint dumps ~40k rows in one response and is timing out the client. There's no \"next\" key in the body at all, it's just a bare JSON array. Other list endpoints in the same project page correctly at 10 per request, which is why I assumed this was configured globally and done with.\n\n# settings.py\nREST_FRAMEWORK = {\n    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',\n    'PAGE_SIZE': 10,\n}\n\n# views.py\nclass NoteList(APIView):\n    def get(self, request):\n        notes = Note.objects.all()\n        return Response(NoteSerializer(notes, many=True).data)\n\n?page=2 changes nothing either. Why is the global setting not reaching this one view?",
+    "reference": "Automatic pagination only happens in generic views and viewsets — a plain APIView won't paginate for you. Switch to a generic view like ListAPIView, or call into the pagination API yourself inside the APIView.",
+    "reference_contexts": [
+      "Pagination is only performed automatically if you're using the generic views or viewsets. If you're using a regular APIView , you'll need to call into the pagination API yourself to ensure you return a paginated response.",
+      "get_paginated_response(self, data) - Returns a paginated style Response object."
+    ],
+    "source_pages": [
+      {
+        "page": "pagination",
+        "url": "https://www.django-rest-framework.org/api-guide/pagination/"
+      },
+      {
+        "page": "generic-views",
+        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q084",
+    "category": "debugging",
+    "user_input": "Mobile team streams the file body straight up with a PUT, no form encoding, because they're uploading multi-hundred-MB videos and don't want to buffer. Every request comes back 415 before my handler runs.\n\n# views.py\nclass UploadView(APIView):\n    def put(self, request, filename):\n        file_obj = request.data['file']\n        save(file_obj, filename)\n        return Response(status=204)\n\n# urls.py\npath('upload/<str:filename>/', UploadView.as_view())\n\ncurl -X PUT --data-binary @photo.jpg http://localhost:8000/upload/photo.jpg/\n# HTTP 415 Unsupported Media Type\n\nSetting Content-Type to application/octet-stream doesn't help. I also don't know where the name is meant to come from, since there's no form field to carry it. What's the right way to accept this?",
+    "reference": "A raw streamed upload needs FileUploadParser, which exposes the file at request.data['file']. Set parser_classes = [FileUploadParser] on the view; because its media_type matches any content type it should generally be the only parser there. The filename comes from the URL kwarg (or Content-Disposition if absent).",
+    "reference_contexts": [
+      "The request.data property will be a dictionary with a single key 'file' containing the uploaded file.",
+      "Since this parser's media_type matches any content type, FileUploadParser should generally be the only parser set on an API view.",
+      "If it is called without a filename URL keyword argument, then the client must set the filename in the Content-Disposition HTTP header."
+    ],
+    "source_pages": [
+      {
+        "page": "parsers",
+        "url": "https://www.django-rest-framework.org/api-guide/parsers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q085",
+    "category": "debugging",
+    "user_input": "Front-end wired up a search box against this endpoint and it returns the full user list no matter what's typed. ?search=russell, ?search=zzzzz, ?search= -- identical 200 responses, same 4,000 records, and the SQL in django-debug-toolbar has no WHERE clause on it.\n\n# views.py\nfrom rest_framework import generics, filters\n\nclass UserListView(generics.ListAPIView):\n    queryset = User.objects.all()\n    serializer_class = UserSerializer\n    filter_backends = [filters.SearchFilter]\n    pagination_class = StandardPagination\n\nI copied the filter_backends line straight out of another view in the codebase where searching does work. What's different about mine?",
+    "reference": "SearchFilter only activates when the view has a search_fields attribute. Add e.g. search_fields = ['username', 'email'] so the filter knows which text fields to search.",
+    "reference_contexts": [
+      "When in use, the browsable API will include a SearchFilter control: The SearchFilter class will only be applied if the view has a search_fields attribute set.",
+      "The search_fields attribute should be a list of names of text type fields on the model, such as CharField or TextField .",
+      "A list of filter backend classes that should be used for generic filtering."
+    ],
+    "source_pages": [
+      {
+        "page": "filtering",
+        "url": "https://www.django-rest-framework.org/api-guide/filtering/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q086",
+    "category": "debugging",
+    "user_input": "Our CLI tool is supposed to notice when it's unauthenticated and re-prompt for credentials, but it never does -- it just prints \"forbidden\" and exits. Hitting the endpoint anonymously with curl gives a 403 and the response has no header telling the client how to authenticate. I need it to be a 401 so the client library takes over.\n\n# views.py\nclass ReportView(APIView):\n    authentication_classes = [SessionAuthentication, BasicAuthentication]\n    permission_classes = [IsAuthenticated]\n\n    def get(self, request):\n        return Response({'ok': True})\n\nAnother endpoint in the same app returns 401 for the same anonymous request, and I can't see what's different between them. What controls this?",
+    "reference": "Only one scheme sets the response type, and it's the first authentication class. SessionAuthentication is first here and returns 403 for denied unauthenticated requests. Put BasicAuthentication first to get a 401 with a WWW-Authenticate header.",
+    "reference_contexts": [
+      "The first authentication class set on the view is used when determining the type of response .",
+      "Unauthenticated responses that are denied permission will result in an HTTP 403 Forbidden response.",
+      "The request was not successfully authenticated, and the highest priority authentication class does use WWW-Authenticate headers."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      },
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q087",
+    "category": "debugging",
+    "user_input": "Double-clicking submit on our form produces a 500 and a Sentry alert instead of a nice field error next to the input. The DB constraint is doing its job, but obviously the user shouldn't see a 500.\n\n# serializers.py\nclass BlogPostSerializer(serializers.Serializer):\n    slug = serializers.SlugField(max_length=100)\n    title = serializers.CharField(max_length=200)\n\n# traceback tail\n  File \".../django/db/backends/utils.py\", line 89, in _execute\n    return self.cursor.execute(sql, params)\ndjango.db.utils.IntegrityError: UNIQUE constraint failed: blog_blogpost.slug\n\nThe model field is declared unique=True. is_valid() returns True and then the save blows up. I'm not using ModelSerializer here because the payload doesn't map 1:1 to the model. How do I catch this before it reaches the database?",
+    "reference": "Attach a UniqueValidator to the field so uniqueness is checked during serializer validation: slug = SlugField(max_length=100, validators=[UniqueValidator(queryset=BlogPost.objects.all())]). It enforces the unique=True constraint at the serializer level and returns a 400.",
+    "reference_contexts": [
+      "This validator can be used to enforce the unique=True constraint on model fields.",
+      "This validator should be applied to serializer fields , like so: from rest_framework ."
+    ],
+    "source_pages": [
+      {
+        "page": "validators",
+        "url": "https://www.django-rest-framework.org/api-guide/validators/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q088",
+    "category": "debugging",
+    "user_input": "A pentest report came back flagging our user list endpoint: an authenticated attacker can order the response by a column we never expose and binary-search values out of it a page at a time. The field isn't in the serializer output at all, so I don't understand how it's even reachable.\n\n# views.py\nclass UserListView(generics.ListAPIView):\n    queryset = User.objects.all()\n    serializer_class = UserSerializer   # fields = ['id', 'username']\n    filter_backends = [filters.OrderingFilter]\n\nGET /users/?ordering=password  -> 200, ordering visibly applied\n\nWhy is an arbitrary column accepted here, and how do I constrain it?",
+    "reference": "Without an ordering_fields attribute, OrderingFilter defaults to allowing ordering on any readable serializer field — that's why password is exposed. Set ordering_fields = ['username', 'email'] to explicitly whitelist what may be ordered against.",
+    "reference_contexts": [
+      "If you don't specify an ordering_fields attribute on the view, the filter class will default to allowing the user to filter on any readable fields on the serializer specified by the serializer_class attribute.",
+      "OrderingFilter ] ordering_fields = [ 'username' , 'email' ] This helps prevent unexpected data leakage, such as allowing users to order against a password hash field or other sensitive data.",
+      "A list of filter backend classes that should be used for generic filtering."
+    ],
+    "source_pages": [
+      {
+        "page": "filtering",
+        "url": "https://www.django-rest-framework.org/api-guide/filtering/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q089",
+    "category": "debugging",
+    "user_input": "Our URLs are /<account>/<slug>/ rather than /<pk>/, so I wrote my own lookup. Since that change, any authenticated user can PUT or DELETE any other account's record. The permission class hasn't changed and it still works fine on the other detail views in the same file that use the default lookup.\n\n# views.py\nclass ThingDetail(generics.RetrieveUpdateDestroyAPIView):\n    serializer_class = ThingSerializer\n    permission_classes = [IsOwnerOrReadOnly]\n\n    def get_object(self):\n        return get_object_or_404(\n            Thing, account=self.kwargs['account'], slug=self.kwargs['slug']\n        )\n\nThe lookup itself returns the right object, so the 404 side is correct. What did I lose by writing this method myself?",
+    "reference": "By replacing get_object you skipped the object-level permission check DRF normally runs there. Call self.check_object_permissions(self.request, obj) on the retrieved object before returning it.",
+    "reference_contexts": [
+      "If you're writing your own views and want to enforce object level permissions, or if you override the get_object method on a generic view, then you'll need to explicitly call the .check_object_permissions(request, obj) method on the view at the point at which you've retrieved the object.",
+      "Returns an object instance that should be used for detail views."
+    ],
+    "source_pages": [
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+      },
+      {
+        "page": "generic-views",
+        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q090",
+    "category": "debugging",
+    "user_input": "Wrote a load test that POSTs to our upload endpoint in a loop and it happily did 4,000 requests in an afternoon without ever getting a 429. Nothing appears in the cache backend either. Other endpoints in the project that use the anon/user rates throttle correctly, so the cache config itself is working.\n\n# settings.py\nREST_FRAMEWORK = {\n    'DEFAULT_THROTTLE_CLASSES': ['rest_framework.throttling.ScopedRateThrottle'],\n    'DEFAULT_THROTTLE_RATES': {'uploads': '20/day', 'contacts': '1000/day'},\n}\n\n# views.py\nclass UploadView(APIView):\n    throttle_classes = [ScopedRateThrottle]\n\n    def post(self, request):\n        ...\n\nThe rate is defined and the class is on the view. Why is nothing being counted?",
+    "reference": "ScopedRateThrottle only applies to a view that declares a .throttle_scope, and yours doesn't set one — so nothing is throttled. Add throttle_scope = 'uploads' to the view so it maps to your 'uploads' rate.",
+    "reference_contexts": [
+      "This throttle will only be applied if the view that is being accessed includes a .throttle_scope property.",
+      "The unique throttle key will then be formed by concatenating the \"scope\" of the request with the unique user id or IP address.",
+      "A list or tuple of throttle classes, that determines the default set of throttles checked at the start of a view."
+    ],
+    "source_pages": [
+      {
+        "page": "throttling",
+        "url": "https://www.django-rest-framework.org/api-guide/throttling/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q091",
+    "category": "debugging",
+    "user_input": "Endpoint 405s and the Allow header on the response only lists GET, OPTIONS -- but I never restricted anything, and the function obviously handles a create.\n\n# views.py\nfrom rest_framework.decorators import api_view\nfrom rest_framework.response import Response\n\n@api_view()\ndef create_thing(request):\n    thing = Thing.objects.create(**request.data)\n    return Response(ThingSerializer(thing).data, status=201)\n\n# urls.py\npath('things/', create_thing)\n\nPOST /things/ -> HTTP 405 Method Not Allowed\n\nThe class-based views elsewhere in this app take POST without me configuring anything. Why is this one refusing?",
+    "reference": "By default @api_view only accepts GET, so anything else gets a 405. Declare the methods: @api_view(['POST']) (or ['GET', 'POST']).",
+    "reference_contexts": [
+      "By default only GET methods will be accepted. Other methods will respond with \"405 Method Not Allowed\".",
+      "Signature: @api_view(http_method_names=['GET']) The core of this functionality is the api_view decorator, which takes a list of HTTP methods that your view should respond to."
+    ],
+    "source_pages": [
+      {
+        "page": "views",
+        "url": "https://www.django-rest-framework.org/api-guide/views/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q092",
+    "category": "debugging",
+    "user_input": "I need a timestamp that the server owns: the client must not be able to set or spoof it, and it must not be required in the request body. Everything I try trades one of those away.\n\n# serializers.py\nclass EventSerializer(serializers.ModelSerializer):\n    created = serializers.DateTimeField(read_only=True)\n\n    class Meta:\n        model = Event\n        fields = ['id', 'name', 'created']\n\nAdding default=timezone.now to that declaration changes nothing -- on create the column falls back to the model default and validated_data has no 'created' key at all. If I drop read_only so the default takes effect, the client can then POST whatever timestamp it likes, which is the thing I'm trying to prevent. I'd rather not stuff it in perform_create() in every view that touches this model.\n\nWhy is the default being skipped, and what's the right field for a server-set value?",
+    "reference": "A read_only field is excluded from writable fields, so it won't use a default for input — that's why the default is ignored. If you want the value auto-set and hidden from input, use HiddenField with a default (e.g. a callable), which lands in validated_data but isn't in the output.",
+    "reference_contexts": [
+      "Note Using a read_only=True field is excluded from writable fields so it won't use a default=… argument.",
+      "This field will be present in validated_data but will not be used in the serializer output representation."
+    ],
+    "source_pages": [
+      {
+        "page": "validators",
+        "url": "https://www.django-rest-framework.org/api-guide/validators/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q093",
+    "category": "debugging",
+    "user_input": "This computed field renders in the JSON as null for every record. The method works -- I called it by hand in the shell against the same instance and got 412.\n\n# serializers.py\nclass UserSerializer(serializers.ModelSerializer):\n    days_since_joined = serializers.SerializerMethodField()\n\n    def compute_days(self, obj):\n        return (now() - obj.date_joined).days\n\n    class Meta:\n        model = User\n        fields = ['id', 'username', 'days_since_joined']\n\n# output\n{\"id\": 1, \"username\": \"jo\", \"days_since_joined\": null}\n\nNo exception, no warning, the key is just always null. What's it actually calling?",
+    "reference": "By default SerializerMethodField calls get_<field_name>, so it's looking for get_days_since_joined, not compute_days. Rename the method to get_days_since_joined, or pass method_name='compute_days' to the field.",
+    "reference_contexts": [
+      "Signature : SerializerMethodField(method_name=None) method_name - The name of the method on the serializer to be called.",
+      "This is a read-only field. It gets its value by calling a method on the serializer class it is attached to."
+    ],
+    "source_pages": [
+      {
+        "page": "fields",
+        "url": "https://www.django-rest-framework.org/api-guide/fields/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q094",
+    "category": "debugging",
+    "user_input": "Two requirements that seem to fight each other: clients shouldn't have to send this field when they create the object (the server fills it in), but when they later PUT the whole object back, whatever is already stored must survive untouched.\n\n# serializers.py\nclass PostSerializer(serializers.ModelSerializer):\n    created_at = serializers.DateTimeField()\n\n    class Meta:\n        model = Post\n        fields = ['id', 'body', 'created_at']\n\nAs written, POST without created_at is a 400. If I give the declaration a plain default, POST works but every PUT silently rewrites the stored value to now(), because the client's payload doesn't carry it back. required=False just means the field vanishes from validated_data on create.\n\nIs there something in DRF for this, or do I have to branch on self.instance?",
+    "reference": "Use CreateOnlyDefault: it applies a default only during create and is omitted on updates, e.g. created_at = serializers.DateTimeField(default=serializers.CreateOnlyDefault(timezone.now)).",
+    "reference_contexts": [
+      "A default class that can be used to only set a default argument during create operations . During updates the field is omitted."
+    ],
+    "source_pages": [
+      {
+        "page": "validators",
+        "url": "https://www.django-rest-framework.org/api-guide/validators/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q095",
+    "category": "debugging",
+    "user_input": "Getting sporadic 500s from a line that shouldn't be able to fail. It's roughly 1 in 50 requests and I cannot reproduce it locally.\n\n# views.py\nif request.user.is_authenticated:   # <- traceback points here\n    ...\n\n# authentication.py\nclass HeaderAuthentication(BaseAuthentication):\n    def authenticate(self, request):\n        username = request.META['HTTP_X_USERNAME']\n        user = User.objects.get(username=username)\n        return (user, None)\n\nThe exception is an AttributeError, but the object it's complaining about has nothing to do with anything on that line, and the traceback goes through a property in DRF's request module rather than my code. My first instinct was that DRF has a bug, since I'm not calling my authenticator there at all. What's the chain here?",
+    "reference": "When your authenticator is invoked via request.user/.auth, an AttributeError it raises is re-raised as a WrappedAttributeError so it isn't silently swallowed by the property access. It signals a real error in your authenticator (here, KeyError/AttributeError on the missing header) that you need to fix or handle.",
+    "reference_contexts": [
+      "Note When your custom authenticator is invoked by the request object's .user or .auth properties, you may see an AttributeError re-raised as a WrappedAttributeError .",
+      "These errors should be fixed or otherwise handled by your authenticator."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q096",
+    "category": "debugging",
+    "user_input": "Front-end wants to paint the error message under the input that caused it, so I need to know exactly what shape comes back when the invalid value is inside a nested object rather than at the top level. Right now they're getting something they can't index into and are asking me to flatten it server-side, which I'd rather not do if there's a predictable structure.\n\n# serializers.py\nclass UserSerializer(serializers.Serializer):\n    email = serializers.EmailField()\n    username = serializers.CharField()\n\nclass CommentSerializer(serializers.Serializer):\n    user = UserSerializer()\n    content = serializers.CharField(max_length=200)\n    created = serializers.DateTimeField()\n\n# the payload they're sending\n{'user': {'email': 'foobar', 'username': 'doe'}, 'content': 'baz'}\n\nWhat exactly does .errors hold for that input, and does the successful case have the same shape?",
+    "reference": "Errors on a nested object are nested under that field's name, so the bad email surfaces as {'user': {'email': ['Enter a valid email address.']}} (plus 'created' being required). validated_data mirrors the same nested structure.",
+    "reference_contexts": [
+      "When dealing with nested representations that support deserializing the data, any errors with nested objects will be nested under the field name of the nested object."
+    ],
+    "source_pages": [
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q097",
+    "category": "debugging",
+    "user_input": "Support ticket: a user reported seeing another customer's orders. I can't reproduce it on the first request after a restart -- it's always correct then. Under load, or after the process has been up a while, people start getting rows that belong to whoever hit the endpoint earlier. Restarting gunicorn \"fixes\" it for a few minutes.\n\n# views.py\nclass OrderList(generics.ListAPIView):\n    queryset = Order.objects.all()\n    serializer_class = OrderSerializer\n\n    def filtered(self):\n        return self.queryset.filter(user=self.request.user)\n\nThe filter itself is right, and the same expression works in a shell. Something about it being on the class is biting me. What's going on, and what should I be doing instead?",
+    "reference": "Accessing the queryset property directly evaluates it once and caches those results for all subsequent requests, which breaks per-request logic. When overriding a view method, call get_queryset() instead so it's re-evaluated each request.",
+    "reference_contexts": [
+      "If you are overriding a view method, it is important that you call get_queryset() instead of accessing this property directly, as queryset will get evaluated once, and those results will be cached for all subsequent requests."
+    ],
+    "source_pages": [
+      {
+        "page": "generic-views",
+        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q098",
+    "category": "debugging",
+    "user_input": "Support flow: someone emails us, we need to hand them a token, and right now that means SSHing into the box and opening a shell:\n\nfrom rest_framework.authtoken.models import Token\nToken.objects.get_or_create(user=User.objects.get(username='user1'))\n\nTwo problems with that. It's four lines of copy-paste under time pressure and easy to fat-finger onto the wrong user, and last week someone pasted a token into a public channel and I had no idea how to invalidate it -- deleting the row by hand felt wrong. Is any of this handled for me already, or do I need to write a management command?",
+    "reference": "Yes — since version 3.6.4 run ./manage.py drf_create_token <username> to get (and create if needed) a user's token. To regenerate a leaked token, add -r: ./manage.py drf_create_token -r <username>.",
+    "reference_contexts": [
+      "Since version 3.6.4 it's possible to generate a user token using the following command: ./ manage .",
+      "py drf_create_token <username> this command will return the API token for the given user, creating it if it doesn't exist: Generated token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b for user user1 In case you want to regenerate the token (for example if it has been compromised or leaked) you can pass an additional parameter: ./ manage ."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q099",
+    "category": "debugging",
+    "user_input": "Security review said every route on the site must require login, so I added Django's LoginRequiredMiddleware after upgrading to 5.1. It works for the admin and the server-rendered pages. The /api/ routes sail straight past it -- anonymous curl still gets 200s from endpoints that have no permission_classes set.\n\n# settings.py\nMIDDLEWARE = [\n    ...\n    'django.contrib.auth.middleware.LoginRequiredMiddleware',\n]\n\nI confirmed the middleware is in the list and running (the HTML pages redirect). Is this a DRF bug or a misconfiguration, and how do I get the same blanket guarantee across the API?",
+    "reference": "It's intentional: all DRF views are opted out of LoginRequiredMiddleware, because DRF auth is decided by authentication/permission classes after the middleware runs, and redirecting API calls to a login page is wrong (a 401 is preferable). Enforce login via DEFAULT_AUTHENTICATION_CLASSES and DEFAULT_PERMISSION_CLASSES instead.",
+    "reference_contexts": [
+      "If you're running Django 5.1+ and use the LoginRequiredMiddleware , please note that all views from DRF are opted-out of this middleware.",
+      "REST framework offers an equivalent mechanism for DRF views via the global settings, DEFAULT_AUTHENTICATION_CLASSES and DEFAULT_PERMISSION_CLASSES .",
+      "A list or tuple of permission classes, that determines the default set of permissions checked at the start of a view."
+    ],
+    "source_pages": [
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+      }
+    ]
+  },
+  {
+    "question_id": "Q100",
+    "category": "debugging",
+    "user_input": "Ported a test file over to DRF's factory and roughly half the tests now fail on requests that pass in the browser. The failures are all on POST/PUT; GET-based tests are green. Identical code under Django's own test client passes.\n\n# tests.py\nfrom rest_framework.test import APIRequestFactory\n\nfactory = APIRequestFactory()\nrequest = factory.post('/notes/', {'title': 'x'}, format='json')\nresponse = NoteCreate.as_view()(request)\n# -> 403\n\nThe view under test has SessionAuthentication in its authentication_classes. Nothing in my test touches middleware. Why does calling the view directly behave differently under DRF, and what's the right way to write these tests?",
+    "reference": "In plain Django, CSRF validation runs in middleware, which isn't executed when you test views directly. In DRF it runs inside the view, so the request factory needs view-level CSRF checks disabled — use APIRequestFactory(enforce_csrf_checks=False) (the default) or authenticate with force_authenticate.",
+    "reference_contexts": [
+      "When using REST framework, CSRF validation takes place inside the view, so the request factory needs to disable view-level CSRF checks.",
+      "CSRF validation in REST framework works slightly differently from standard Django due to the need to support both session and non-session based authentication to the same views."
+    ],
+    "source_pages": [
+      {
+        "page": "testing",
+        "url": "https://www.django-rest-framework.org/api-guide/testing/"
+      },
+      {
+        "page": "authentication",
+        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      }
+    ]
+  }
+]
