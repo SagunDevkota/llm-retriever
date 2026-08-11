@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pandas as pd
 
-DATA_DIR = Path(__file__).resolve().parent / "playwright"
+DATA_DIR = Path(__file__).resolve().parent / "django-rest-framework"
 OUTPUT_PATH = Path(__file__).resolve().parent / "evaluation_report.xlsx"
 
 # retriever key -> label shown in the report.
