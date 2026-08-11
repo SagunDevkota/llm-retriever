@@ -5,7 +5,7 @@ import time
 
 from openai import OpenAI
 
-from core.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, SUMMARIZER_MODEL
+from core.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, SUMMARIZER_MODEL, RETRIEVER_MODEL
 from core.errors import ConfigError, SummarizationError
 from core.models import SummaryResponse
 

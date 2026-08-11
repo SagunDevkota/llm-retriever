@@ -97,10 +97,10 @@
   {
     "question_id": "Q007",
     "category": "straightforward",
-    "user_input": "I added a pagination class but my list endpoint won't paginate. Does pagination work with any view?",
-    "reference": "Only generic views and viewsets paginate automatically. A plain APIView won't unless you call the pagination API yourself.",
+    "user_input": "Once a list endpoint is paginated, what does the response body actually look like — how is a client supposed to know how many records exist in total and where to get the next batch?",
+    "reference": "The results get wrapped in an envelope rather than returned as a bare array. A page-number paginated response carries `count` (the total number of records across all pages), `next` and `previous` (full URLs to the adjacent pages, or null at either end), and `results` (the records for this page). Clients walk the collection by following `next` until it comes back null, rather than by computing page numbers themselves.",
     "reference_contexts": [
-      "Pagination is only performed automatically if you're using the generic views or viewsets."
+      "HTTP 200 OK { \"count\": 1023, \"next\": \"https://api.example.org/accounts/?page=5\", \"previous\": \"https://api.example.org/accounts/?page=3\", \"results\": [ ... ] }"
     ],
     "source_pages": [
       {
@@ -472,13 +472,11 @@
   {
     "question_id": "Q030",
     "category": "intent_driven",
-    "user_input": "I need different rate limits for different parts of my API — a strict cap on uploads but looser on contacts. How do I do per-area limits rather than one global user rate?",
-    "reference": "Use ScopedRateThrottle: give each view a .throttle_scope naming its area and set a rate per scope in DEFAULT_THROTTLE_RATES. The throttle only applies to views that declare a throttle_scope.",
+    "user_input": "Scrapers hit us in short violent bursts; our real users trickle requests out over the whole day. If I set the ceiling low enough to stop a burst I punish the real users, and if I set it high enough for the real users the bursts sail through. Can I enforce both shapes at once?",
+    "reference": "Yes — stack two throttles instead of picking one number. Subclass UserRateThrottle twice and give each subclass its own unique `scope`, e.g. a `burst` class and a `sustained` class, then list both in DEFAULT_THROTTLE_CLASSES and define a rate for each scope under DEFAULT_THROTTLE_RATES (something like '60/min' and '1000/day'). Multiple UserRateThrottles can be in force at the same time, and every request is checked against all of them, so a client has to stay under the short window and the long one simultaneously.",
     "reference_contexts": [
-      "The ScopedRateThrottle class can be used to restrict access to specific parts of the API.",
-      "This throttle will only be applied if the view that is being accessed includes a .throttle_scope property.",
-      "The unique throttle key will then be formed by concatenating the \"scope\" of the request with the unique user id or IP address.",
-      "A list or tuple of throttle classes, that determines the default set of throttles checked at the start of a view."
+      "An API may have multiple UserRateThrottles in place at the same time. To do so, override UserRateThrottle and set a unique \"scope\" for each class.",
+      "class BurstRateThrottle(UserRateThrottle): scope = 'burst' class SustainedRateThrottle(UserRateThrottle): scope = 'sustained'"
     ],
     "source_pages": [
       {
@@ -494,39 +492,36 @@
   {
     "question_id": "Q031",
     "category": "intent_driven",
-    "user_input": "I want users to only ever see and edit their own objects through my list endpoints — never anyone else's. Recommended approach?",
-    "reference": "Filter the queryset per request: override get_queryset to restrict results to request.user's objects, because object-level permissions aren't applied across a list for performance reasons.",
+    "user_input": "When the payment provider we call during checkout is slow or down, our endpoint currently returns a wall of HTML with a stack trace in it. I want it to answer with a clean, machine-readable 'try again shortly' that our clients can branch on, and I want to define that once rather than writing the same try/except into every view that touches the provider.",
+    "reference": "Define your own exception type and raise it; the framework turns it into the response. Subclass APIException — the base class for exceptions raised inside an APIView or @api_view — and set `.status_code`, `.default_detail` and `.default_code` on the class, e.g. a ServiceUnavailable with status_code = 503 and a default_detail of 'Service temporarily unavailable, try again later.'. Then any view that raises it produces that response, handled centrally instead of per view, and the body comes back in the standard error shape with a `detail` key rather than as a Django HTML error page. Note the boundary: this handling only applies to responses generated by *raised* exceptions — a Response object you return directly from a view, such as an explicit HTTP_400_BAD_REQUEST, never passes through it.",
     "reference_contexts": [
-      "The simplest way to filter the queryset of any view that subclasses GenericAPIView is to override the .get_queryset() method.",
-      "You can do so by filtering based on the value of request.user .",
-      "For performance reasons the generic views will not automatically apply object level permissions to each instance in a queryset when returning a list of objects.",
-      "queryset - The queryset that should be used for returning objects from this view."
+      "The base class for all exceptions raised inside an APIView class or @api_view.",
+      "To provide a custom exception, subclass APIException and set the .status_code, .default_detail, and .default_code attributes on the class.",
+      "Subclasses of APIException raised inside REST framework.",
+      "Note that the exception handler will only be called for responses generated by raised exceptions. It will not be used for any responses returned directly by the view, such as the HTTP_400_BAD_REQUEST responses that are returned by the generic views when serializer validation fails."
     ],
     "source_pages": [
       {
-        "page": "filtering",
-        "url": "https://www.django-rest-framework.org/api-guide/filtering/"
+        "page": "exceptions",
+        "url": "https://www.django-rest-framework.org/api-guide/exceptions/"
       },
       {
-        "page": "permissions",
-        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
-      },
-      {
-        "page": "generic-views",
-        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
+        "page": "views",
+        "url": "https://www.django-rest-framework.org/api-guide/views/"
       }
     ]
   },
   {
     "question_id": "Q032",
     "category": "intent_driven",
-    "user_input": "I want to accept a nested object in one POST — create a user together with their profile. Does DRF handle that out of the box?",
-    "reference": "No. The default ModelSerializer create/update don't support writable nested representations, so you must write your own .create()/.update(), or use a package like DRF Writable Nested.",
+    "user_input": "Our mobile client only ever renders two columns from this endpoint but the payload carries about thirty, and on a slow connection that's the difference between a snappy list and a spinner. The web client needs the full object from the same endpoint. I'd rather not stand up a parallel serializer and a parallel URL just to serve a narrower version of the same record.",
+    "reference": "You don't need a second serializer class — the field set is mutable at runtime. Once a serializer is initialized its fields are available as the `.fields` attribute, an ordinary dictionary you can read and modify, which lets you change what gets rendered (and the arguments on individual fields) per instance rather than at declaration time. The documented pattern is a DynamicFieldsModelSerializer: accept an extra `fields` keyword in __init__, pop it before calling super(), and then drop everything not requested from self.fields. Your view decides what to pass — typically driven by a query parameter — so UserSerializer(user) returns the full record and UserSerializer(user, fields=('id', 'email')) returns the narrow one from the same class and the same URL. If you'd rather not hand-roll it, drf-dynamic-fields provides a mixin that limits fields from a URL parameter, and drf-flex-fields additionally handles expanding primitive fields into nested ones.",
     "reference_contexts": [
-      "The default ModelSerializer .create() and .update() methods do not include support for writable nested representations.",
-      "There are however, third-party packages available such as DRF Writable Nested that support automatic writable nested representations.",
-      "save () return instance Because the behavior of nested creates and updates can be ambiguous, and may require complex dependencies between related models, REST framework 3 requires you to always write these methods explicitly.",
-      "Such nested relationships can be expressed by using serializers as fields."
+      "Once a serializer has been initialized, the dictionary of fields that are set on the serializer may be accessed using the .fields attribute. Accessing and modifying this attribute allows you to dynamically modify the serializer.",
+      "Modifying the fields argument directly allows you to do interesting things such as changing the arguments on serializer fields at runtime, rather than at the point of declaring the serializer.",
+      "class DynamicFieldsModelSerializer(serializers.ModelSerializer): \"\"\" A ModelSerializer that takes an additional `fields` argument that controls which fields should be displayed. \"\"\" def __init__(self, *args, **kwargs): # Don't pass the 'fields' arg up to the superclass fields = kwargs.pop('fields', None) # Instantiate the superclass normally super().__init__(*args, **kwargs)",
+      "print(UserSerializer(user)) {'id': 2, 'username': 'jonwatts', 'email': 'jon@example.com'} print(UserSerializer(user, fields=('id', 'email'))) {'id': 2, 'email': 'jon@example.com'}",
+      "The drf-dynamic-fields package provides a mixin to dynamically limit the fields per serializer to a subset specified by an URL parameter."
     ],
     "source_pages": [
       {
@@ -534,8 +529,8 @@
         "url": "https://www.django-rest-framework.org/api-guide/serializers/"
       },
       {
-        "page": "relations",
-        "url": "https://www.django-rest-framework.org/api-guide/relations/"
+        "page": "fields",
+        "url": "https://www.django-rest-framework.org/api-guide/fields/"
       }
     ]
   },
@@ -590,20 +585,21 @@
   {
     "question_id": "Q035",
     "category": "intent_driven",
-    "user_input": "My hyperlinked serializers produce relative, broken URLs. What am I missing to get full absolute URLs?",
-    "reference": "HyperlinkedModelSerializer needs the current request in its context to build fully qualified URLs; pass context={'request': request} (generic views do this for you).",
+    "user_input": "The create form on one of our endpoints takes the better part of a minute to load in the browser, and only that one. The record points at a lookup table with roughly 80,000 rows, and I'm fairly sure the form is trying to render every single one of them into a dropdown. I don't want to turn the browser-facing UI off for this endpoint. What are my options?",
+    "reference": "That dropdown is built from the relational field's `choices`, and the browsable rendering of relational fields is already capped — by default it renders at most 1000 selectable items and then shows a disabled 'More than 1000 items…' entry. Tune it per field with `html_cutoff` (the maximum number of options to render, or None to disable the limit) and `html_cutoff_text` (the indicator shown when items were cut off), or set them globally with the HTML_SELECT_CUTOFF and HTML_SELECT_CUTOFF_TEXT settings. Dropping the cutoff to a small number keeps the endpoint browsable without materialising the whole table into the page.",
     "reference_contexts": [
-      "When instantiating a HyperlinkedModelSerializer you must include the current request in the serializer context, for example: serializer = AccountSerializer ( queryset , context ={ 'request' : request }) Doing so will ensure that the hyperlinks can include an appropriate hostname, so that the resulting representation uses fully qualified URLs, such as: http : //api.example.com/accounts/1/ Rather than relative URLs, such as: /accounts/ 1 / If you do want to use relative URLs, you should explicitly pass {'request': None} in the serializer context.",
-      "HyperlinkedRelatedField may be used to represent the target of the relationship using a hyperlink."
+      "When rendered in the browsable API relational fields will default to only displaying a maximum of 1000 selectable items. If more items are present then a disabled option with \"More than 1000 items…\" will be displayed.",
+      "html_cutoff - If set this will be the maximum number of choices that will be displayed by a HTML select drop down. Set to None to disable any limiting. Defaults to 1000.",
+      "You can also control these globally using the settings HTML_SELECT_CUTOFF and HTML_SELECT_CUTOFF_TEXT."
     ],
     "source_pages": [
       {
-        "page": "serializers",
-        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
-      },
-      {
         "page": "relations",
         "url": "https://www.django-rest-framework.org/api-guide/relations/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
       }
     ]
   },
@@ -653,12 +649,12 @@
   {
     "question_id": "Q038",
     "category": "intent_driven",
-    "user_input": "I've got a React front-end served from the same domain as my API. Users log in through the normal Django login page, but my fetch() POSTs randomly come back 403 while GETs work fine. Do I need JWT? CORS headers? Something with CSRF tokens? What's the right setup here?",
-    "reference": "Use SessionAuthentication so same-context AJAX authenticates off the existing session — but include a valid CSRF token on unsafe methods like POST, PUT, PATCH and DELETE.",
+    "user_input": "Our front-end is deployed on a completely different domain from the API. The browser fires off an OPTIONS request and then refuses to send the real one, and none of this ever reaches our view code — no log line, nothing. What's the supported way to let this through?",
+    "reference": "That's a cross-origin problem, not an authentication one: the browser is refusing to hand the response to a client on another domain unless the server returns headers permitting it. DRF's recommendation is to add those headers in middleware rather than in your views, so CORS is supported transparently across the whole API without changing view behaviour. The docs point at Adam Johnson's `django-cors-headers` package, which is known to work correctly with REST framework.",
     "reference_contexts": [
-      "This ensures that once a user has logged in, any AJAX requests made can be authenticated using the same session-based authentication that is used for the rest of the website.",
-      "If you're using an AJAX-style API with SessionAuthentication, you'll need to make sure you include a valid CSRF token for any \"unsafe\" HTTP method calls, such as PUT , PATCH , POST or DELETE requests.",
-      "If you’re building a JavaScript client to interface with your Web API, you'll need to consider if the client can use the same authentication policy that is used by the rest of the website, and also determine if you need to use CSRF tokens or CORS headers."
+      "Cross-Origin Resource Sharing is a mechanism for allowing clients to interact with APIs that are hosted on a different domain. CORS works by requiring the server to include a specific set of headers that allow a browser to determine if and when cross-domain requests should be allowed.",
+      "The best way to deal with CORS in REST framework is to add the required response headers in middleware. This ensures that CORS is supported transparently, without having to change any behavior in your views.",
+      "Adam Johnson maintains the django-cors-headers package, which is known to work correctly with REST framework APIs."
     ],
     "source_pages": [
       {
@@ -666,8 +662,8 @@
         "url": "https://www.django-rest-framework.org/topics/ajax-csrf-cors/"
       },
       {
-        "page": "authentication",
-        "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
       }
     ]
   },
@@ -735,16 +731,21 @@
   {
     "question_id": "Q042",
     "category": "intent_driven",
-    "user_input": "Behind Apache with mod_wsgi, my token auth fails — the Authorization header seems to vanish. What's going on and how do I fix it at deploy level?",
-    "reference": "mod_wsgi doesn't pass the Authorization header to the app by default, so non-session auth breaks. Set WSGIPassAuthorization to 'On' to forward it.",
+    "user_input": "We already run an OAuth 2.0 provider for our mobile apps, and I'd rather not stand up a second, parallel credential system inside the API just so the framework has something it recognises. Is there a supported way to have it accept the credentials we're already issuing?",
+    "reference": "You don't have to reimplement it. The recommended package for OAuth 2.0 support is Django OAuth Toolkit: install `django-oauth-toolkit`, add `oauth2_provider` to INSTALLED_APPS, and put `oauth2_provider.contrib.rest_framework.OAuth2Authentication` in DEFAULT_AUTHENTICATION_CLASSES. If what you're actually issuing is JWTs rather than OAuth2 tokens, the corresponding third-party option is `djangorestframework-simplejwt`, which validates tokens without a database lookup.",
     "reference_contexts": [
-      "Note that if deploying to Apache using mod_wsgi , the authorization header is not passed through to a WSGI application by default, as it is assumed that authentication will be handled by Apache, rather than at an application level.",
-      "This can be done by specifying the WSGIPassAuthorization directive in the appropriate context and setting it to 'On' ."
+      "The Django OAuth Toolkit package provides OAuth 2.0 support and works with Python 3.4+. The package is maintained by jazzband and uses the excellent OAuthLib. The package is well documented, and well supported and is currently our recommended package for OAuth 2.0 support.",
+      "INSTALLED_APPS = [ ... 'oauth2_provider', ] REST_FRAMEWORK = { 'DEFAULT_AUTHENTICATION_CLASSES': [ 'oauth2_provider.contrib.rest_framework.OAuth2Authentication', ] }",
+      "JSON Web Token is a fairly new standard which can be used for token-based authentication. Unlike the built-in TokenAuthentication scheme, JWT Authentication doesn't need to use a database to validate a token. A package for JWT authentication is djangorestframework-simplejwt."
     ],
     "source_pages": [
       {
         "page": "authentication",
         "url": "https://www.django-rest-framework.org/api-guide/authentication/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
       }
     ]
   },
@@ -934,22 +935,27 @@
   {
     "question_id": "Q052",
     "category": "multi_hop",
-    "user_input": "I set permission_classes on a generic view but object-level checks don't run on my detail endpoint unless I use generics. When does DRF run object-level checks, and what do I do in my own view?",
-    "reference": "Generic views run object-level permissions when .get_object() is called. In a custom view you must call self.check_object_permissions(request, obj) after retrieving the object, and note DRF's built-in classes (except DjangoObjectPermissions) don't implement has_object_permission unless you subclass them.",
+    "user_input": "The OpenAPI file we publish is missing a good chunk of the API. None of the custom actions we hung off our viewsets appear in it at all, and several endpoints that do appear describe their request body as empty even though they clearly accept one. Nothing fails — the generate step exits cleanly and writes the file. What is actually walking the project to build this, where does the per-endpoint detail come from, and why would an endpoint come out blank rather than wrong?",
+    "reference": "Schema generation is two layers, and your two symptoms come from different ones. SchemaGenerator is the top-level piece: it walks your configured URL patterns, finds the APIView subclasses behind them, asks each one for its schema representation, and compiles the result — so anything not reachable through the URL conf simply isn't seen, which is the first thing to check for the missing actions. The per-view detail comes from AutoSchema, which is attached to each view through its `schema` attribute and does the introspection; you subclass AutoSchema to customise what a view reports, and set a project-wide default with the DEFAULT_SCHEMA_CLASS setting. An endpoint comes out blank rather than wrong when the introspection has nothing to infer from — there's no serializer for it to read — which is why the docs tell you to annotate the generated schema with any additional information that cannot be automatically inferred. Worth knowing before you invest in this: the built-in schema support is deprecated in favour of third-party packages, and drf-spectacular is the recommended full replacement.",
     "reference_contexts": [
-      "Object level permissions are run by REST framework's generic views when .get_object() is called.",
-      "If you're writing your own views and want to enforce object level permissions, or if you override the get_object method on a generic view, then you'll need to explicitly call the .check_object_permissions(request, obj) method on the view at the point at which you've retrieved the object.",
-      "request , obj ) return obj Note With the exception of DjangoObjectPermissions , the provided permission classes in rest_framework.permissions do not implement the methods necessary to check object permissions.",
-      "Returns an object instance that should be used for detail views."
+      "SchemaGenerator is a top-level class that is responsible for walking your configured URL patterns, finding APIView subclasses, enquiring for their schema representation, and compiling the final schema object.",
+      "AutoSchema encapsulates all the details necessary for per-view schema introspection. Is attached to each view via the schema attribute. You subclass AutoSchema in order to customize your schema.",
+      "settings.DEFAULT_SCHEMA_CLASS allows you to specify an AutoSchema subclass to serve as your project's default.",
+      "Once you've generated a schema in this way you can annotate it with any additional information that cannot be automatically inferred by the schema generator.",
+      "REST framework's built-in support for generating OpenAPI schemas is deprecated in favor of 3rd party packages that can provide this functionality instead. As a full-fledged replacement, we recommend the drf-spectacular package."
     ],
     "source_pages": [
       {
-        "page": "permissions",
-        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
+        "page": "schemas",
+        "url": "https://www.django-rest-framework.org/api-guide/schemas/"
       },
       {
-        "page": "generic-views",
-        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
+        "page": "viewsets",
+        "url": "https://www.django-rest-framework.org/api-guide/viewsets/"
+      },
+      {
+        "page": "settings",
+        "url": "https://www.django-rest-framework.org/api-guide/settings/"
       }
     ]
   },
@@ -1135,17 +1141,21 @@
   {
     "question_id": "Q060",
     "category": "multi_hop",
-    "user_input": "Across serializers, when should I worry about N+1 queries — both for a related field and for the source argument?",
-    "reference": "Any relational serialization can trigger a hit per object, so it's the programmer's job to optimize queries (e.g. prefetch). The same applies to source when it walks a relational ORM attribute — a known N+1 risk to prefetch around.",
+    "user_input": "Our album list endpoint went from 40ms to about four seconds after I changed the tracks field to render the full nested track objects instead of just their ids. Someone told me to add select_related('tracks') to the queryset and the ORM threw an error at me instead. Why doesn't the framework deal with this itself, and how do I tell which optimisation goes with which field?",
+    "reference": "The framework deliberately doesn't optimise the queryset for you — it makes no attempt to infer select_related / prefetch_related from your serializer, because that would be too much magic. Any field that spans an ORM relation, whether it's a declared relational field or a plain field reaching across a relation via `source`, can cost an extra query per object, and with many=True over a large queryset that becomes the N+1 you're seeing. Fixing it is your job, and which tool applies is decided by the relation, not by the serializer: select_related resolves forward single-valued relations (ForeignKey, OneToOne) with a SQL join, while a reverse or multi-valued relation like `tracks` cannot be joined that way and has to use prefetch_related — which is exactly why select_related('tracks') errored. Pass the optimised queryset to the serializer (Album.objects.prefetch_related('tracks')) and the extra hits disappear.",
     "reference_contexts": [
-      "It is the programmer's responsibility to optimize queries to avoid additional database hits which could occur while using such a serializer.",
-      "For example, the following serializer would lead to a database hit each time evaluating the tracks field if it is not prefetched: class AlbumSerializer ( serializers .",
-      "Beware of possible n+1 problems when using source attribute if you are accessing a relational orm model."
+      "REST Framework does not attempt to automatically optimize querysets passed to serializers in terms of select_related and prefetch_related since it would be too much magic. A serializer with a field spanning an ORM relation through its source attribute could require an additional database hit to fetch related objects from the database. It is the programmer's responsibility to optimize queries to avoid additional database hits which could occur while using a serializer.",
+      "If AlbumSerializer is used to serialize a fairly large queryset with many=True then it could be a serious performance problem.",
+      "qs = Album.objects.prefetch_related('tracks') # No additional database hits required print(AlbumSerializer(qs, many=True).data)"
     ],
     "source_pages": [
       {
         "page": "relations",
         "url": "https://www.django-rest-framework.org/api-guide/relations/"
+      },
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
       },
       {
         "page": "fields",
@@ -1231,12 +1241,13 @@
   {
     "question_id": "Q064",
     "category": "multi_hop",
-    "user_input": "I want custom OPTIONS metadata and also correct renderer selection via content negotiation. How does each mechanism decide what to return?",
-    "reference": "Metadata is a configurable mechanism for how the API answers OPTIONS requests (returning schema/resource info), while content negotiation is the separate process of selecting one of several representations based on client or server preferences.",
+    "user_input": "I swapped in a cut-down metadata class so OPTIONS stops advertising our whole field list to anonymous clients. Now the front-end team reports that their OPTIONS call comes back as an HTML page while mine comes back as JSON — same endpoint, same deploy, and neither of us touched the renderer config. What decides what goes into that response versus what format it arrives in?",
+    "reference": "Two separate mechanisms compose on that one response, which is why changing one didn't explain the other. The metadata class decides the *content* of an OPTIONS body: DEFAULT_METADATA_CLASS (or a per-view `metadata_class`) names a class implementing determine_metadata(request, view), and the built-in SimpleMetadata is what returns the name, description, renders/parses lists and the `actions` field descriptions — a MinimalMetadata-style override returning just name and description is what trimmed it. The *format* is then chosen by content negotiation, which picks a renderer from the ones configured for the view based on the client's Accept header, most specific first, falling back to the order of renderer_classes / DEFAULT_RENDERER_CLASSES when specificity ties. A browser sends Accept: text/html and gets the browsable renderer; a fetch() sending Accept: application/json gets JSON. Same metadata payload, two representations.",
     "reference_contexts": [
-      "REST framework includes a configurable mechanism for determining how your API should respond to OPTIONS requests.",
-      "Content negotiation is the process of selecting one of multiple possible representations to return to a client, based on client or server preferences.",
-      "REST framework uses a simple style of content negotiation to determine which media type should be returned to a client, based on the available renderers, the priorities of each of those renderers, and the client's Accept: header."
+      "REST framework includes a configurable mechanism for determining how your API should respond to OPTIONS requests. This allows you to return API schema or other resource information.",
+      "If you want to provide a custom metadata class you should override BaseMetadata and implement the determine_metadata(self, request, view) method.",
+      "REST framework uses a simple style of content negotiation to determine which media type should be returned to a client, based on the available renderers, the priorities of each of those renderers, and the client's Accept: header. The style used is partly client-driven, and partly server-driven.",
+      "If multiple media types have the same specificity, then preference is given to based on the ordering of the renderers configured for the given view."
     ],
     "source_pages": [
       {
@@ -1246,6 +1257,10 @@
       {
         "page": "content-negotiation",
         "url": "https://www.django-rest-framework.org/api-guide/content-negotiation/"
+      },
+      {
+        "page": "renderers",
+        "url": "https://www.django-rest-framework.org/api-guide/renderers/"
       }
     ]
   },
@@ -1317,13 +1332,13 @@
   {
     "question_id": "Q068",
     "category": "multi_hop",
-    "user_input": "The browsable API shows no login control and I also want to restyle it. How do I add login/logout routes and where does the styling come from?",
-    "reference": "Add DRF's default login/logout routes by including 'rest_framework.urls' under the 'rest_framework' namespace. The browsable API is built on Bootstrap, so restyle it with a rest_framework/api.html template extending rest_framework/base.html.",
+    "user_input": "I added our logo to the browsable API by dropping in my own template, and after that deploy the login/logout control disappeared from the navbar. The auth routes are still in the urlconf and I never touched them. How do the template customisation and the login control relate — what do I have to preserve so both survive?",
+    "reference": "They meet in the same template. The login control only appears if you've routed it — you add the 'login' and 'logout' routes under the 'rest_framework' namespace by including rest_framework.urls in your urlconf — but it is *rendered* by rest_framework/base.html. Customisation is supposed to be additive: you create rest_framework/api.html that `{% extends \"rest_framework/base.html\" %}` and override individual blocks (bootstrap_theme to swap the Bootstrap CSS, bootstrap_navbar_variant for the navbar style, style for finer CSS tweaks). If your api.html replaces base.html's content instead of extending it and overriding a block, you drop everything base.html was rendering — the auth control included — even though the routes are still registered. Extend, override the one block you need, and the login link comes back.",
     "reference_contexts": [
-      "DRF provides default routes for this which you can add to your urlconf: from django .",
-      "To customize the default style, create a template called rest_framework/api.html that extends from rest_framework/base.html .",
-      "The browsable API is built with Twitter's Bootstrap (v 3.4.1), making it easy to customize the look-and-feel.",
-      "By default the response content will be rendered with the highest priority renderer apart from BrowsableAPIRenderer ."
+      "To quickly add authentication to the browesable api, add a routes named \"login\" and \"logout\" under the namespace \"rest_framework\". DRF provides default routes for this which you can add to your urlconf.",
+      "To customize the default style, create a template called rest_framework/api.html that extends from rest_framework/base.html.",
+      "To replace the default theme, add a bootstrap_theme block to your api.html and insert a link to the desired Bootstrap theme css file. This will completely replace the included theme.",
+      "For more specific CSS tweaks than simply overriding the default bootstrap theme you can override the style block."
     ],
     "source_pages": [
       {
@@ -1339,13 +1354,14 @@
   {
     "question_id": "Q069",
     "category": "multi_hop",
-    "user_input": "I want to pass extra data (like the request) into my serializer beyond the object, and I know hyperlinked fields need it. What's the general mechanism and one case that requires it?",
-    "reference": "Provide arbitrary extra data via the serializer's context argument. A common case that requires it is a serializer with hyperlinked relations, which needs the current request to generate fully qualified URLs.",
+    "user_input": "The same serializer renders correct absolute links when it's driven by our list view, but when a nightly management command instantiates it directly to build a digest email, the link fields blow up. Nothing about the serializer differs between the two paths. What is the view handing the serializer that my command isn't, and how do I supply it myself?",
+    "reference": "The view is passing serializer context, and the hyperlinked fields depend on it. Fully qualified URLs can't be built from the model alone — the serializer needs the current request to know the scheme and host — so hyperlinked relations require the request to be in context. Generic views do this for you when they instantiate the serializer, which is why the list endpoint works and your standalone call doesn't. Outside a view you pass it yourself: AccountSerializer(queryset, many=True, context={'request': request}). Context is the general mechanism for handing a serializer anything beyond the object being serialized, and it's readable as self.context from any field logic such as a custom to_representation(). If you genuinely want relative URLs — plausible for an email — you must pass {'request': None} explicitly rather than omitting the key.",
     "reference_contexts": [
-      "There are some cases where you need to provide extra context to the serializer in addition to the object being serialized.",
+      "There are some cases where you need to provide extra context to the serializer in addition to the object being serialized. One common case is if you're using a serializer that includes hyperlinked relations, which requires the serializer to have access to the current request so that it can properly generate fully qualified URLs.",
       "You can provide arbitrary additional context by passing a context argument when instantiating the serializer.",
-      "One common case is if you're using a serializer that includes hyperlinked relations, which requires the serializer to have access to the current request so that it can properly generate fully qualified URLs.",
-      "HyperlinkedRelatedField may be used to represent the target of the relationship using a hyperlink."
+      "The context dictionary can be used within any serializer field logic, such as a custom .to_representation() method, by accessing the self.context attribute.",
+      "When instantiating a HyperlinkedModelSerializer you must include the current request in the serializer context, for example: serializer = AccountSerializer(queryset, context={'request': request})",
+      "If you do want to use relative URLs, you should explicitly pass {'request': None} in the serializer context."
     ],
     "source_pages": [
       {
@@ -1355,24 +1371,32 @@
       {
         "page": "relations",
         "url": "https://www.django-rest-framework.org/api-guide/relations/"
+      },
+      {
+        "page": "generic-views",
+        "url": "https://www.django-rest-framework.org/api-guide/generic-views/"
       }
     ]
   },
   {
     "question_id": "Q070",
     "category": "multi_hop",
-    "user_input": "My JSON-only API shows Django's HTML 500/400 pages when things blow up. What does DRF offer, and separately how do I make validation errors report per-field?",
-    "reference": "DRF provides two error views for generic JSON 500 and 400 responses (wire them like Django's custom error views). For validation, raise a ValidationError whose detail is a dictionary to report field-level errors during object-level validation in validate().",
+    "user_input": "I wrote a handler so every error leaves our API in one consistent envelope, and now the front-end can't tell which field was rejected any more — invalid submissions used to come back keyed by field name and now they arrive as one flat string. What was producing that per-field structure before, and what do I have to keep in my own handler to get it back?",
+    "reference": "The per-field structure came from the default exception handler, and you replaced it. The chain is: generic views call is_valid(raise_exception=True), which turns a failed validation into a raised ValidationError; the framework's exception handler catches that and renders it as the field-keyed 400 body your front-end was parsing. Your custom handler is wired in through the EXCEPTION_HANDLER setting and takes (exc, context), and it must either return a Response or return None to re-raise — returning your own freshly built Response discards that rendering. The documented pattern is to call REST framework's own exception_handler first to get the standard error response, then decorate what it returned (e.g. adding to response.data) rather than constructing a replacement. Because generic views use raise_exception=True, fixing the handler this way changes validation error style globally across the API.",
     "reference_contexts": [
-      "Django REST Framework provides two error views suitable for providing generic JSON 500 Server Error and 400 Bad Request responses.",
-      "By using a dictionary, you can specify field-level errors while performing object-level validation in the validate() method of a serializer.",
-      "Signature: ValidationError(detail=None, code=None) The ValidationError exception is slightly different from the other APIException classes: The detail argument may be a list or dictionary of error details, and may also be a nested data structure.",
-      "A string representing the function that should be used when returning a response for any given exception."
+      "The function must take a pair of arguments, the first is the exception to be handled, and the second is a dictionary containing any extra context such as the view currently being handled. The exception handler function should either return a Response object, or return None if the exception cannot be handled.",
+      "from rest_framework.views import exception_handler def custom_exception_handler(exc, context): # Call REST framework's default exception handler first, to get the standard error response. response = exception_handler(exc, context)",
+      "The exception handler must also be configured in your settings, using the EXCEPTION_HANDLER setting key.",
+      "The generic views use the raise_exception=True flag, which means that you can override the style of validation error responses globally in your API. To do so, use a custom exception handler."
     ],
     "source_pages": [
       {
         "page": "exceptions",
         "url": "https://www.django-rest-framework.org/api-guide/exceptions/"
+      },
+      {
+        "page": "serializers",
+        "url": "https://www.django-rest-framework.org/api-guide/serializers/"
       },
       {
         "page": "settings",
@@ -1432,13 +1456,14 @@
   {
     "question_id": "Q073",
     "category": "multi_hop",
-    "user_input": "I want clients to set page size per request but keep a hard ceiling, and configure it per-view or globally. Which attributes do that and how do I apply the class?",
-    "reference": "Subclass a pagination class and set page_size_query_param (the query param clients use) and max_page_size (the ceiling); apply per view via pagination_class or globally via DEFAULT_PAGINATION_CLASS.",
+    "user_input": "We moved a huge, constantly-growing table onto cursor pagination to stop clients seeing the same row twice while they scroll. It fixed that, but our mobile client is now broken in a way I didn't anticipate: it deep-links people straight to page 12 of a result set. Why does this style rule that out, and what is it actually requiring of the data underneath?",
+    "reference": "The two are the same constraint seen from opposite ends. Cursor pagination requires a unique, unchanging ordering over the result set — typically a creation timestamp — and it encodes the client's position as an opaque cursor relative to that ordering rather than as an index. That requirement is what buys you the consistent view you switched for: the client never sees the same item twice even while other clients insert rows mid-scroll. It is also exactly why page numbers are gone — a cursor names a position in an ordering, so the scheme deliberately does not allow the client to arbitrarily index into the result set. The ordering field needs to be unchanging and unique-or-nearly-unique (millisecond timestamps are the canonical example) and must not be a float, since precision errors give wrong results. You set it via the pagination class's `ordering` attribute, and if you combine it with OrderingFilter you should strongly consider restricting which fields clients may order by. Deep links have to be re-expressed as saved cursors, not page indices.",
     "reference_contexts": [
-      "page_size_query_param - If set, this is a string value indicating the name of a query parameter that allows the client to set the page size on a per-request basis.",
-      "max_page_size - If set, this is a numeric value indicating the maximum allowable requested page size.",
-      "You can also set the pagination class on an individual view by using the pagination_class attribute.",
-      "The default class to use for queryset pagination."
+      "Cursor based pagination requires that there is a unique, unchanging ordering of items in the result set. This ordering might typically be a creation timestamp on the records, as this presents a consistent ordering to paginate against.",
+      "Provides a consistent pagination view. When used properly CursorPagination ensures that the client will never see the same item twice when paging through records, even when new items are being inserted by other clients during the pagination process.",
+      "It also requires that the result set presents a fixed ordering, and does not allow the client to arbitrarily index into the result set.",
+      "You can modify the ordering by overriding the 'ordering' attribute on the pagination class, or by using the OrderingFilter filter class together with CursorPagination. When used with OrderingFilter you should strongly consider restricting the fields that the user may order by.",
+      "Should not be a float. Precision errors easily lead to incorrect results."
     ],
     "source_pages": [
       {
@@ -1446,20 +1471,21 @@
         "url": "https://www.django-rest-framework.org/api-guide/pagination/"
       },
       {
-        "page": "settings",
-        "url": "https://www.django-rest-framework.org/api-guide/settings/"
+        "page": "filtering",
+        "url": "https://www.django-rest-framework.org/api-guide/filtering/"
       }
     ]
   },
   {
     "question_id": "Q074",
     "category": "multi_hop",
-    "user_input": "Under load my UserRateThrottle sometimes lets a few extra requests through, and I want throttle state stored in a non-default cache. Are these related, and how do I point throttling at another cache?",
-    "reference": "The extra requests are expected: the built-in throttles are open to race conditions under high concurrency. Storage is separate — subclass the throttle, set its cache attribute (e.g. caches['alternate']), and register the class in DEFAULT_THROTTLE_CLASSES.",
+    "user_input": "We run three application servers behind a load balancer and a client on a 100/day allowance managed roughly 300 before anything stopped it — almost exactly three times what it should be. Each server has its own local in-process cache. I think I know what's happening, but I need to understand where the counting actually lives: what does a throttle count against, and how do I move that somewhere all three servers can see?",
+    "reference": "Your read is right, and the two halves are one story. Throttles are counters held in the cache, keyed per client — for a scoped throttle the key is formed by concatenating the request's scope with the unique user id, or with the IP address for unauthenticated clients. With a local per-process cache each server keeps its own independent counter under that key, so each one grants the full allowance and you get roughly N× your configured rate across N servers. Moving the counters to a backend all three share fixes it. Throttles use the 'default' cache unless told otherwise, and the documented way to point them elsewhere is to subclass the throttle and set its `cache` attribute — `class CustomAnonRateThrottle(AnonRateThrottle): cache = caches['alternate']` — then remember to register that subclass in DEFAULT_THROTTLE_CLASSES or the view's throttle_classes, since defining it alone changes nothing.",
     "reference_contexts": [
-      "The built-in throttle implementations are open to race conditions , so under high concurrency they may allow a few extra requests through.",
-      "If you need to use a cache other than 'default' , you can do so by creating a custom throttle class and setting the cache attribute.",
-      "A list or tuple of throttle classes, that determines the default set of throttles checked at the start of a view."
+      "If you need to use a cache other than 'default', you can do so by creating a custom throttle class and setting the cache attribute.",
+      "from django.core.cache import caches class CustomAnonRateThrottle(AnonRateThrottle): cache = caches['alternate']",
+      "You'll need to remember to also set your custom throttle class in the 'DEFAULT_THROTTLE_CLASSES' settings key, or using the throttle_classes view attribute.",
+      "The unique throttle key will then be formed by concatenating the \"scope\" of the request with the unique user id or IP address."
     ],
     "source_pages": [
       {
@@ -1475,11 +1501,13 @@
   {
     "question_id": "Q075",
     "category": "multi_hop",
-    "user_input": "I registered a ModelViewSet that uses get_queryset() instead of a queryset attribute and the router won't build a basename. Why does the viewset choice force my hand, and what's the rule?",
-    "reference": "The router derives the basename from the viewset's queryset attribute; a ModelViewSet with only get_queryset() has none, so you must pass basename at router registration. Rule: no queryset attribute means you must set basename when registering.",
+    "user_input": "I hung a custom action off one of our viewsets. It routes fine and I can call it, but two things aren't behaving: the object-level permission I attached to it never seems to be consulted, and after I changed the URL segment to be hyphenated instead of underscored, the link our serializer builds to it started raising NoReverseMatch. How does an action of this kind get its URL and its permissions — are these the same knob or two?",
+    "reference": "Two knobs, and the URL one is itself two values. The router picks up methods decorated with @action and generates routes for them, with `detail=True` or `detail=False` deciding whether the pattern carries a pk. By default the URL pattern comes from the method name and the URL *name* is the viewset's basename joined to the hyphenated method name — and `url_path` and `url_name` change those two independently. Changing only url_path leaves the reverse name as it was, so a serializer reversing the name you assumed gets NoReverseMatch; set both, or reverse the name that's actually registered. Permissions are separate: @action accepts `permission_classes`, e.g. @action(detail=True, methods=['post'], permission_classes=[IsAdminOrIsSelf]). Two things stop those from firing. Object-level checks only run when the object is fetched through get_object(), so an action that queries the model directly never triggers them — call self.check_object_permissions() yourself if you do. And do not wire an @action method up with .as_view(): that bypasses router setup and may ignore action settings including permission_classes, which is the usual cause of a permission that appears to be attached but never runs.",
     "reference_contexts": [
-      "all () Note however that upon removal of the queryset property from your ViewSet , any associated router will be unable to derive the basename of your Model automatically, and so you will have to specify the basename kwarg as part of your router registration .",
-      "Note that if the viewset does not include a queryset attribute then you must set basename when registering the viewset."
+      "If you have ad-hoc methods that should be routable, you can mark them as such with the @action decorator. Like regular actions, extra actions may be intended for either a single object, or an entire collection. To indicate this, set the detail argument to True or False. The router will configure its URL patterns accordingly.",
+      "By default, the URL pattern is based on the method name, and the URL name is the combination of the ViewSet.basename and the hyphenated method name. If you don't want to use the defaults for either of these values, you can instead provide the url_path and url_name arguments to the @action decorator.",
+      "@action(detail=True, methods=['post'], permission_classes=[IsAdminOrIsSelf]) def set_password(self, request, pk=None): ...",
+      "Do not use .as_view() with @action methods. It bypasses router setup and may ignore action settings like permission_classes. Use DefaultRouter for actions."
     ],
     "source_pages": [
       {
@@ -1489,6 +1517,10 @@
       {
         "page": "routers",
         "url": "https://www.django-rest-framework.org/api-guide/routers/"
+      },
+      {
+        "page": "permissions",
+        "url": "https://www.django-rest-framework.org/api-guide/permissions/"
       }
     ]
   },

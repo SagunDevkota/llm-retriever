@@ -19,7 +19,7 @@ import time
 
 from openai import OpenAI
 
-from core.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, SUMMARIZER_MODEL
+from core.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, RETRIEVER_MODEL
 from core.errors import ConfigError, RetrieverError
 
 # Column indices for rows from get_roots_for_llm / get_children_for_llm:
@@ -34,6 +34,99 @@ ANCHOR = 9
 PARENT_ID = 10
 
 
+ROUTING_SYSTEM_PROMPT = """You navigate a hierarchical documentation tree to answer a query. \
+You are shown one level of the tree at a time and decide, per node, what to retrieve and \
+where to descend. You never answer the query here — you only route.
+
+Each node has two texts:
+  - EVIDENCE — the node's OWN retrievable content. This is exactly what you get if you
+    select the node. "(none ...)" means the node has no own content.
+  - ROUTING — a summary of content that lives in the node's CHILDREN. This content is NOT
+    inside this node; the ONLY way to retrieve it is to explore into the children.
+
+For EACH node make TWO independent decisions:
+
+1. evidence — Judge the EVIDENCE text ALONE. Set true ONLY if the EVIDENCE text DIRECTLY
+   answers or materially contributes to answering the query — not merely because it is
+   topically related, mentions a keyword, or gives background. If EVIDENCE is "(none ...)"
+   or just a heading/title path with no substantive text, evidence MUST be false —
+   selecting it would retrieve nothing useful. Do NOT set evidence true because of
+   something you saw in ROUTING. When in doubt about evidence, prefer false.
+
+   evidence_score — a number from 0.0 to 1.0: your confidence that this node's EVIDENCE
+   text DIRECTLY helps answer the query (1.0 = clearly and directly answers it; 0.5 =
+   partially relevant; 0.0 = not at all). Set 0.0 whenever evidence is false. This score
+   ranks the final results, so be discriminating rather than clustering everything near
+   the top. Reserve scores above 0.8 for text that states the answer outright.
+
+2. explore — Judge the ROUTING text. Set true if ROUTING indicates the query's topic is
+   covered anywhere in the children. That content lives in a child, not in this node, so
+   exploring is the ONLY way to reach it: if ROUTING mentions or relates to the query's
+   topic, you MUST set explore=true — do not assume the node already contains it. If
+   ROUTING is "(none ...)" (a leaf), explore MUST be false.
+
+The two decisions are independent: a node can be evidence AND explore (its intro answers
+partly and its subsections add detail), evidence only, explore only, or neither. When
+unsure whether to EXPLORE, lean toward true — deeper exploration can still be pruned, so
+this protects recall. Hold EVIDENCE to a higher bar: prefer to omit a node whose own
+content is only tangentially related.
+
+Additional rules:
+
+- COVER EVERY PART OF THE QUERY. If the query has several parts, asks "X and Y", or needs
+  facts from more than one area of the documentation, make sure your explored set covers
+  each part. Do not spend your whole explore budget on the single most obvious topic.
+  A branch you fail to explore can never be recovered at a later level.
+- PREFER CURRENT REFERENCE MATERIAL. Release notes, version announcements, changelogs and
+  migration guides describe what changed in one past version and often name APIs that were
+  later renamed or removed. Treat them as weak evidence: prefer the equivalent reference or
+  guide page, and only select a release note as evidence when the query is itself about
+  that version's history. Still explore them if nothing else covers the topic.
+- Judge relevance to what the user is actually trying to do, including any constraint they
+  state ("I'd rather not…", "without…", "instead of…"). A node describing an approach the
+  user has explicitly ruled out is not good evidence.
+
+Return ONLY valid JSON, with no prose, no explanation and no code fences, in exactly this
+format:
+{"decisions": [{"id": "<id>", "evidence": true, "evidence_score": 0.0, "explore": true}]}
+
+Include a node ONLY if evidence or explore (or both) is true. OMIT any node where both are
+false — never emit entries like {"id": "...", "evidence": false, "explore": false}. If no
+node qualifies, return {"decisions": []}."""
+
+
+ANSWER_SYSTEM_PROMPT = """You answer a question using only the documentation excerpts \
+provided in the user message. The excerpts are numbered and each carries the title path of \
+the section it came from.
+
+Rules:
+
+- GROUND EVERY CLAIM IN THE EXCERPTS. Do not introduce names, values, options or behaviour
+  that do not appear there. If the excerpts genuinely do not answer the question, say so
+  plainly and state what they do cover — but only after reading all of them, since the
+  answer is often in a later excerpt rather than the first.
+- BE SPECIFIC. Name the exact thing the reader has to use or change, rather than describing
+  in general terms how the system behaves. Where the excerpts give a concrete form, show it.
+- ANSWER EVERY PART OF THE QUESTION. When a question asks for more than one thing, address
+  each part explicitly instead of answering only the most obvious one.
+- RESPECT STATED CONSTRAINTS. When the question rules something out, or states a
+  requirement the answer has to satisfy, do not recommend an approach that violates it even
+  if the excerpts describe that approach. Choose the option that meets the constraint, and
+  say why.
+- FOLLOW THE DOCUMENTATION'S OWN RECOMMENDATION. If the excerpts present several supported
+  approaches, lead with whichever the documentation itself calls recommended, preferred or
+  built in, and mention the alternatives afterwards. Do not lead with a custom or
+  hand-built approach when a supported one appears in the excerpts.
+- WHEN SEVERAL APPROACHES GENUINELY APPLY, name them, say when each is the right choice,
+  then commit to a recommendation for the case in the question.
+- PREFER CURRENT MATERIAL OVER HISTORICAL. If an excerpt is a release note, changelog,
+  announcement or migration guide, treat it as a record of one past version: what it names
+  may since have changed. Do not present it as the current state unless another excerpt
+  agrees. If it is your only source, say which version it describes.
+- Be direct and concise. Do not preface the answer with remarks about the excerpts.
+- If the answer is not present in the reference document respond with "I don't know" and nothing else."""
+
+
 def _clamp_score(value) -> float:
     """Coerce an LLM-supplied relevance score into [0.0, 1.0]; 0.0 on garbage."""
     try:
@@ -46,7 +139,7 @@ class LLMRetriever:
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = SUMMARIZER_MODEL,
+        model: str = RETRIEVER_MODEL,
         *,
         base_url: str = OPENROUTER_BASE_URL,
         max_retries: int = 3,
@@ -62,18 +155,96 @@ class LLMRetriever:
         self.model = model
         self.max_retries = max_retries
         self.retry_backoff = retry_backoff
+        self._reset_usage()
 
-    def _chat(self, prompt: str, *, max_tokens: int = 500) -> str:
-        """Single chat call with linear-backoff retries on transient errors."""
+    @staticmethod
+    def _empty_bucket() -> dict:
+        return {
+            "cost": 0.0,
+            "upstream_inference_cost": 0.0,
+            "calls": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        }
+
+    def _reset_usage(self) -> None:
+        """
+        Zero the per-question usage accumulators. Usage is split by call kind:
+        ``routing`` (the one-per-level tree-navigation calls, of which there are
+        as many as levels descended) and ``generation`` (the single final
+        answer call), since the two have very different cost profiles.
+        """
+        self._usage = {
+            "routing": self._empty_bucket(),
+            "generation": self._empty_bucket(),
+        }
+
+    @property
+    def last_usage(self) -> dict:
+        """
+        Cost/token usage of the most recent ``answer`` call, split into
+        ``routing`` and ``generation`` buckets with the combined figures kept at
+        the top level.
+        """
+        routing = dict(self._usage["routing"])
+        generation = dict(self._usage["generation"])
+        totals = {
+            key: routing[key] + generation[key] for key in self._empty_bucket()
+        }
+        return {"model": self.model, **totals, "routing": routing, "generation": generation}
+
+    def _track_usage(self, response, kind: str) -> None:
+        """Accumulate OpenRouter usage accounting into the ``kind`` bucket."""
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return
+        bucket = self._usage[kind]
+        bucket["calls"] += 1
+        bucket["prompt_tokens"] += usage.prompt_tokens or 0
+        bucket["completion_tokens"] += usage.completion_tokens or 0
+        bucket["total_tokens"] += usage.total_tokens or 0
+        bucket["cost"] += getattr(usage, "cost", None) or 0.0
+        cost_details = getattr(usage, "cost_details", None) or {}
+        if not isinstance(cost_details, dict):  # pydantic extra model
+            cost_details = dict(cost_details)
+        bucket["upstream_inference_cost"] += (
+            cost_details.get("upstream_inference_cost") or 0.0
+        )
+
+    def _chat(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        max_tokens: int = 500,
+        kind: str = "routing",
+    ) -> str:
+        """
+        Single chat call with linear-backoff retries on transient errors.
+
+        ``system`` carries the standing rules for the task and ``prompt`` carries only
+        the volatile payload (the query and the candidate nodes / evidence). Keeping
+        them apart raises instruction adherence and lets the provider cache the
+        invariant half across the many calls one question makes.
+        """
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
         last_error: Exception | None = None
         for attempt in range(1, self.max_retries + 1):
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     max_tokens=max_tokens,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.0
+                    messages=messages,
+                    temperature=0.0,
+                    # OpenRouter usage accounting: include cost in the response.
+                    extra_body={"usage": {"include": True}},
                 )
+                self._track_usage(response, kind)
                 return response.choices[0].message.content.strip()
             except Exception as e:
                 last_error = e
@@ -128,59 +299,15 @@ class LLMRetriever:
                 f"ROUTING (content that lives in this node's CHILDREN):\n{routing_display}\n\n"
             )
 
-        prompt = f"""You are navigating a hierarchical documentation tree to answer a query.
+        prompt = f"""User Query: {query}
 
-User Query: {query}
-
-Each node has two texts:
-  - EVIDENCE — the node's OWN retrievable content. This is exactly what you get
-    if you select the node. "(none ...)" means the node has no own content.
-  - ROUTING — a summary of content that lives in the node's CHILDREN. This
-    content is NOT inside this node; the ONLY way to retrieve it is to explore
-    into the children.
-
-For EACH node make TWO independent decisions:
-
-1. evidence — Judge the EVIDENCE text ALONE. Set true ONLY if the EVIDENCE text
-   DIRECTLY answers or materially contributes to answering the query — not
-   merely because it is topically related, mentions a keyword, or gives
-   background. If EVIDENCE is "(none ...)" or just a heading/title path with no
-   substantive text, evidence MUST be false — selecting it would retrieve
-   nothing useful. Do NOT set evidence true because of something you saw in
-   ROUTING. When in doubt about evidence, prefer false.
-
-   evidence_score — a number from 0.0 to 1.0: your confidence that this node's
-   EVIDENCE text DIRECTLY helps answer the query (1.0 = clearly and directly
-   answers it; 0.5 = partially relevant; 0.0 = not at all). Set 0.0 whenever
-   evidence is false. This score is used to rank the final results, so be
-   discriminating rather than clustering everything near the top.
-
-2. explore — Judge the ROUTING text. Set true if ROUTING indicates the query's
-   topic is covered anywhere in the children. That content lives in a child, not
-   in this node, so exploring is the ONLY way to reach it: if ROUTING mentions or
-   relates to the query's topic, you MUST set explore=true — do not assume the
-   node already contains it. If ROUTING is "(none ...)" (a leaf), explore MUST be
-   false.
-
-The two decisions are independent: a node can be evidence AND explore (its intro
-answers partly and its subsections add detail), evidence only, explore only, or
-neither. When unsure whether to EXPLORE, lean toward true — deeper exploration
-can still be pruned, so this protects recall. Hold EVIDENCE to a higher bar:
-prefer to omit a node whose own content is only tangentially related.
-
-Select at most {max_explore} nodes to explore (the most promising branches).
-
-Include a node in the output ONLY if evidence or explore (or both) is true.
-OMIT any node where both are false — do not emit entries like
-{{"id": "...", "evidence": false, "explore": false}}. If no node qualifies,
-return an empty list.
+Select at most {max_explore} nodes to explore (the most promising branches), making sure
+they cover every distinct part of the query.
 
 Nodes:
-{nodes_formatted}
-Return ONLY valid JSON in this exact format, with no other text:
-{{"decisions": [{{"id": "<id>", "evidence": true, "evidence_score": 0.0, "explore": true}}, ...]}}"""
+{nodes_formatted}"""
 
-        raw = self._chat(prompt)
+        raw = self._chat(prompt, system=ROUTING_SYSTEM_PROMPT)
 
         try:
             if "```" in raw:
@@ -291,8 +418,11 @@ Return ONLY valid JSON in this exact format, with no other text:
                max_tokens=1500):
         """
         End-to-end RAG: collect the evidence set, then generate the final
-        answer from it. Returns ``(answer, contexts)``.
+        answer from it. Returns ``(answer, contexts)``; the aggregated
+        cost/token usage of all LLM calls made for this question is available
+        afterwards via ``last_usage``.
         """
+        self._reset_usage()
         rows = self.retrieve(
             query, store,
             max_explore=max_explore, max_results=max_results, max_level=max_level,
@@ -302,7 +432,13 @@ Return ONLY valid JSON in this exact format, with no other text:
 
         prompt = build_llm_context_from_rows(query, rows)
         contexts = [row[CONTENT] for row in rows]
-        return self._chat(prompt, max_tokens=max_tokens), contexts
+        answer = self._chat(
+            prompt,
+            system=ANSWER_SYSTEM_PROMPT,
+            max_tokens=max_tokens,
+            kind="generation",
+        )
+        return answer, contexts
 
 
 def build_llm_context_from_rows(query, evidence_rows):
@@ -322,9 +458,5 @@ def build_llm_context_from_rows(query, evidence_rows):
 
     context = "\n\n---\n\n".join(segments)
 
-    return (
-        f"Answer the following question using only the provided context.\n\n"
-        f"Question: {query}\n\n"
-        f"Context:\n{context}\n\n"
-        f"Answer:"
-    )
+    # Only the volatile half: the standing rules live in ANSWER_SYSTEM_PROMPT.
+    return f"Question: {query}\n\nDocumentation excerpts:\n{context}"

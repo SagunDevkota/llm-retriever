@@ -36,6 +36,7 @@ OPENROUTER_BASE_URL = os.environ.get(
     "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
 )
 SUMMARIZER_MODEL = os.environ.get("SUMMARIZER_MODEL", "google/gemma-4-31b-it:free")
+RETRIEVER_MODEL = os.environ.get("RETRIEVER_MODEL", "google/gemma-4-31b-it:free")
 # Base DSN (host/user/port + a fallback database name). Entrypoints that read or
 # write data override the database name from a required CLI arg via
 # ``dsn_with_db``; see save_checkpoint.py / run_retrieve.py.

@@ -32,31 +32,39 @@ with open("./questions.json") as f:
 store = PostgresStore(dsn)
 retriever = LLMRetriever()  # reads OPENROUTER_API_KEY from env / .env
 
-query = input("Enter your question: ")
-answer, selected_node_content = retriever.answer(query, store)
-print(answer,'\n\n\n', selected_node_content)
+# query = input("Enter your question: ")
+# answer, selected_node_content = retriever.answer(query, store)
+# print(answer,'\n\n\n', selected_node_content)
 
-# for dataset in tqdm.tqdm(datasets):
-#     if dataset.get('llm_response'):
-#         print(f"Skipping: {dataset['question_id']}")
-#         continue
-#     retrieved = retriever.answer(dataset['user_input'], store)
-#     answer, selected_node_content = retrieved
-#     if selected_node_content:
-#         dataset['llm_response'] = answer
-#         dataset['llm_references'] = selected_node_content
-#     else:
-#         dataset['llm_response'] = ""
-#         dataset['llm_references'] = []
+for dataset in tqdm.tqdm(datasets):
+    if dataset.get('llm_response'):
+        print(f"Skipping: {dataset['question_id']}")
+        continue
+    retrieved = retriever.answer(dataset['user_input'], store)
+    answer, selected_node_content = retrieved
+    if selected_node_content:
+        dataset['llm_response'] = answer
+        dataset['llm_references'] = selected_node_content
+    else:
+        dataset['llm_response'] = ""
+        dataset['llm_references'] = []
+    dataset['llm_cost'] = retriever.last_usage
 
-#     with open("./questions.json","w") as f:
-#         json.dump(datasets, f, indent=4)
+    with open("./questions.json","w") as f:
+        json.dump(datasets, f, indent=4)
 
-# df = pd.DataFrame(datasets)
-# df = df.rename({
-#     "llm_references": "retrieved_contexts",
-#     "llm_response": "response"
-# }, axis=1)
-# df = df[["user_input","retrieved_contexts","reference_contexts","response","reference"]]
-# df.to_excel("ragas_result.xlsx", index=False)
-# store.close()
+df = pd.DataFrame(datasets)
+# Rows answered before cost tracking existed have no llm_cost; default to 0.
+df['cost'] = df.get('llm_cost', pd.Series(dtype=object)).apply(
+    lambda x: (x or {}).get('upstream_inference_cost', 0) if isinstance(x, dict) else 0
+)
+df['total_tokens'] = df.get('llm_cost', pd.Series(dtype=object)).apply(
+    lambda x: (x or {}).get('total_tokens', 0) if isinstance(x, dict) else 0
+)
+df = df.rename({
+    "llm_references": "retrieved_contexts",
+    "llm_response": "response"
+}, axis=1)
+df = df[["user_input","retrieved_contexts","reference_contexts","response","reference","cost","total_tokens"]]
+df.to_excel("ragas_result.xlsx", index=False)
+store.close()
