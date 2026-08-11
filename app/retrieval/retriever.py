@@ -17,10 +17,8 @@ search / embeddings are involved; every decision is made by the LLM.
 import json
 import time
 
-from openai import OpenAI
-
-from core.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, RETRIEVER_MODEL
-from core.errors import ConfigError, RetrieverError
+from core.config import init_model
+from core.errors import RetrieverError
 
 # Column indices for rows from get_roots_for_llm / get_children_for_llm:
 # id, level, title, title_path, url, canonical_url, content,
@@ -127,6 +125,29 @@ Rules:
 - If the answer is not present in the reference document respond with "I don't know" and nothing else."""
 
 
+def _provider_extra_body(client) -> dict:
+    """Non-standard request-body fields the client's provider understands.
+
+    Each provider silently ignores fields it doesn't know (an unhonoured flag
+    looks exactly like a working one), so they are keyed off the base URL rather
+    than sent to everyone:
+
+    - OpenRouter: ``usage.include`` returns cost accounting on the response.
+    - Hetzner: ``chat_template_kwargs.thinking`` turns off the reasoning block on
+      reasoning models. Left on, a model like ``DeepSeek-V4-Flash-0731`` spends
+      the whole ``max_tokens`` budget thinking about a 25k-token routing prompt
+      and returns no content at all. (``reasoning_effort="none"`` also works
+      here; ``{"thinking": {"type": "disabled"}}`` — the Anthropic spelling — is
+      accepted and ignored.)
+    """
+    base_url = str(client.base_url)
+    if "openrouter" in base_url:
+        return {"usage": {"include": True}}
+    if "hetzner" in base_url:
+        return {"chat_template_kwargs": {"thinking": False}}
+    return {}
+
+
 def _clamp_score(value) -> float:
     """Coerce an LLM-supplied relevance score into [0.0, 1.0]; 0.0 on garbage."""
     try:
@@ -136,23 +157,37 @@ def _clamp_score(value) -> float:
 
 
 class LLMRetriever:
+    """Retrieval driven by two separate models.
+
+    The tree navigation (one call per level) and the single final generation
+    call are different jobs with different cost profiles, so each has its own
+    model — and, since the two live on different providers, its own client. The
+    ``kind`` passed to :meth:`_chat` ("routing" / "generation") picks the pair
+    and doubles as the usage-accounting bucket.
+    """
+
     def __init__(
         self,
-        api_key: str | None = None,
-        model: str = RETRIEVER_MODEL,
+        routing_model: str | None = None,
+        answer_model: str | None = None,
         *,
-        base_url: str = OPENROUTER_BASE_URL,
         max_retries: int = 3,
         retry_backoff: float = 2.0,
     ):
-        api_key = api_key or OPENROUTER_API_KEY
-        if not api_key:
-            raise ConfigError(
-                "No OpenRouter API key. Set OPENROUTER_API_KEY (env/.env) "
-                "or pass api_key=... explicitly."
-            )
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
-        self.model = model
+        routing_client, self.routing_model = init_model("routing", model=routing_model)
+        answer_client, self.answer_model = init_model("answer", model=answer_model)
+        self._clients = {
+            "routing": (
+                routing_client,
+                self.routing_model,
+                _provider_extra_body(routing_client),
+            ),
+            "generation": (
+                answer_client,
+                self.answer_model,
+                _provider_extra_body(answer_client),
+            ),
+        }
         self.max_retries = max_retries
         self.retry_backoff = retry_backoff
         self._reset_usage()
@@ -192,7 +227,13 @@ class LLMRetriever:
         totals = {
             key: routing[key] + generation[key] for key in self._empty_bucket()
         }
-        return {"model": self.model, **totals, "routing": routing, "generation": generation}
+        return {
+            "routing_model": self.routing_model,
+            "answer_model": self.answer_model,
+            **totals,
+            "routing": {"model": self.routing_model, **routing},
+            "generation": {"model": self.answer_model, **generation},
+        }
 
     def _track_usage(self, response, kind: str) -> None:
         """Accumulate OpenRouter usage accounting into the ``kind`` bucket."""
@@ -227,7 +268,13 @@ class LLMRetriever:
         the volatile payload (the query and the candidate nodes / evidence). Keeping
         them apart raises instruction adherence and lets the provider cache the
         invariant half across the many calls one question makes.
+
+        ``kind`` selects the model/client pair ("routing" for the per-level
+        navigation calls, "generation" for the final answer) as well as the
+        usage bucket the call is charged to.
         """
+        client, model, extra_body = self._clients[kind]
+
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -236,20 +283,35 @@ class LLMRetriever:
         last_error: Exception | None = None
         for attempt in range(1, self.max_retries + 1):
             try:
-                response = self.client.chat.completions.create(
-                    model=self.model,
+                response = client.chat.completions.create(
+                    model=model,
                     max_tokens=max_tokens,
                     messages=messages,
                     temperature=0.0,
-                    # OpenRouter usage accounting: include cost in the response.
-                    extra_body={"usage": {"include": True}},
+                    extra_body=extra_body,
                 )
-                self._track_usage(response, kind)
-                return response.choices[0].message.content.strip()
             except Exception as e:
                 last_error = e
                 if attempt < self.max_retries:
                     time.sleep(self.retry_backoff * attempt)
+                continue
+
+            self._track_usage(response, kind)
+            choice = response.choices[0]
+            content = (choice.message.content or "").strip()
+            if content:
+                return content
+
+            # A completed call that carried no text. On a reasoning model this
+            # means the whole max_tokens budget went into the thinking block
+            # (finish_reason="length") and nothing was left for the answer —
+            # deterministic at temperature 0, so retrying only burns tokens.
+            raise RetrieverError(
+                f"The {kind} model {model!r} returned an empty completion "
+                f"(finish_reason={choice.finish_reason!r}, max_tokens={max_tokens}). "
+                f"Reasoning models spend this budget on their thinking block: raise "
+                f"max_tokens for this call, or point the role at a non-reasoning model."
+            )
 
         raise RetrieverError(
             f"LLM selection request failed after {self.max_retries} attempts: {last_error}"

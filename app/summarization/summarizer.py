@@ -3,10 +3,8 @@
 import json
 import time
 
-from openai import OpenAI
-
-from core.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, SUMMARIZER_MODEL, RETRIEVER_MODEL
-from core.errors import ConfigError, SummarizationError
+from core.config import init_model
+from core.errors import SummarizationError
 from core.models import SummaryResponse
 
 
@@ -73,7 +71,7 @@ CHILD CONTEXT:
 
 
 class GroqSummarizer:
-    """Calls an OpenRouter chat model and parses structured JSON output.
+    """Calls the SUMMARIZER model and parses structured JSON output.
 
     Transient API errors and unparseable responses are retried with a simple
     linear backoff before being surfaced as :class:`SummarizationError`.
@@ -82,20 +80,15 @@ class GroqSummarizer:
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = SUMMARIZER_MODEL,
+        model: str | None = None,
         *,
-        base_url: str = OPENROUTER_BASE_URL,
+        base_url: str | None = None,
         max_retries: int = 3,
         retry_backoff: float = 2.0,
     ):
-        api_key = api_key or OPENROUTER_API_KEY
-        if not api_key:
-            raise ConfigError(
-                "No OpenRouter API key. Set OPENROUTER_API_KEY (env/.env) "
-                "or pass api_key=... explicitly."
-            )
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
-        self.model = model
+        self.client, self.model = init_model(
+            "summarizer", model=model, api_key=api_key, base_url=base_url
+        )
         self.max_retries = max_retries
         self.retry_backoff = retry_backoff
 

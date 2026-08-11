@@ -1,7 +1,8 @@
 """Phase 3 — summarize: hierarchical summaries + keywords -> checkpoint.
 
 Reads the checkpoint from phase 2, summarizes every node (children first), and
-checkpoints after each one (resumable). Needs OPENROUTER_API_KEY in the env.
+checkpoints after each one (resumable). Uses the SUMMARIZER model, which runs on
+OpenRouter — needs OPENROUTER_API_KEY in the env.
     python run_summarize.py
 """
 
@@ -10,7 +11,8 @@ from summarization.pipeline import hierarchical_summarization_pipeline
 from summarization.summarizer import GroqSummarizer
 from summarization.tree import post_order_traversal
 
-summarizer = GroqSummarizer(model='google/gemma-4-31b-it:free')  # reads OPENROUTER_API_KEY from env / .env
+# Model id from SUMMARIZER_MODEL, key from OPENROUTER_API_KEY (env / .env).
+summarizer = GroqSummarizer()
 
 nodes_by_id = load_checkpoint()
 if not nodes_by_id:

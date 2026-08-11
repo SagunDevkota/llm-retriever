@@ -27,6 +27,7 @@ import argparse
 import ast
 import asyncio
 import os
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -43,47 +44,27 @@ from ragas.metrics.collections import (
 from ragas.metrics import RubricsScore  # legacy metric (scored via single_turn_ascore)
 from ragas.dataset_schema import SingleTurnSample
 from ragas.llms import llm_factory
-from openai import AsyncOpenAI
 
 
 # --- Configuration: model + key come from .env only ------------------------
-def _load_env() -> None:
-    """Load .env from the repo root and from app/.env (where the keys live)."""
-    try:
-        from dotenv import load_dotenv
-    except Exception:  # python-dotenv is optional
-        return
-    repo_root = Path(__file__).resolve().parent.parent
-    load_dotenv()  # cwd / nearest .env
-    load_dotenv(repo_root / "app" / ".env")
-    load_dotenv(repo_root / ".env")
+# The model registry lives in app/core/config.py; app/ is put on sys.path so the
+# EVALUATION model is defined in exactly one place alongside the other three.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_REPO_ROOT / "app"))
 
+from core.config import init_model  # noqa: E402  (needs the sys.path line above)
 
-_load_env()
-
-SUMMARIZER_MODEL = os.environ.get("EVALUATION_MODEL")
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_BASE_URL = os.environ.get(
-    "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
-)
 # Max simultaneous metric computations (LLM calls). Tune down if you hit rate
 # limits, up if the provider allows more throughput.
 MAX_CONCURRENCY = int(os.environ.get("EVAL_MAX_CONCURRENCY", "5"))
 # Flush partial results to disk after this many computed cells (crash-resume).
 CHECKPOINT_EVERY = int(os.environ.get("EVAL_CHECKPOINT_EVERY", "5"))
 
-if not SUMMARIZER_MODEL or not OPENROUTER_API_KEY:
-    raise SystemExit(
-        "Set SUMMARIZER_MODEL and OPENROUTER_API_KEY in your .env "
-        "(model id + api key). Nothing is hardcoded."
-    )
-
 # Async client so the metrics' ``agenerate`` calls work.
-_client = AsyncOpenAI(api_key=OPENROUTER_API_KEY, base_url=OPENROUTER_BASE_URL)
+_client, EVALUATION_MODEL = init_model("evaluation", async_client=True)
 evaluator_llm = llm_factory(
-    SUMMARIZER_MODEL, client=_client, temperature=0.0, max_tokens=4096
+    EVALUATION_MODEL, client=_client, temperature=0.0, max_tokens=4096
 )
-print(f"Using {SUMMARIZER_MODEL} Model.")
 # --- Metric instances (all LLM-only; no embedding model needed) ------------
 answer_accuracy = AnswerAccuracy(llm=evaluator_llm)
 factual_correctness = FactualCorrectness(llm=evaluator_llm)

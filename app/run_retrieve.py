@@ -2,7 +2,8 @@
 
 Walks the node tree in Postgres level by level, letting the LLM pick the best
 branches to explore, then generates and prints the final answer. Needs nodes
-already stored in the `nodes` table and OPENROUTER_API_KEY in the env.
+already stored in the `nodes` table, plus HETZNER_API_KEY (ROUTING model) and
+OPENROUTER_API_KEY (ANSWER model) in the env.
     python run_retrieve.py --db <database_name>
 """
 
@@ -30,7 +31,9 @@ with open("./questions.json") as f:
     datasets = json.load(f)
 
 store = PostgresStore(dsn)
-retriever = LLMRetriever()  # reads OPENROUTER_API_KEY from env / .env
+# ROUTING model (Hetzner) for the tree walk, ANSWER model (OpenRouter) for the
+# final generation; both ids and keys come from env / .env.
+retriever = LLMRetriever()
 
 # query = input("Enter your question: ")
 # answer, selected_node_content = retriever.answer(query, store)
