@@ -11,7 +11,7 @@ app/*.json
 app/*.xlsx
 app/django-rest-framework
 app/playwright
-docs/data_evaluation*
+docs/data_evaluation*/*.py
 diagrams
 *.csv
 *.ipynb
