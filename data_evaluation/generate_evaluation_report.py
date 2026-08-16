@@ -10,11 +10,11 @@ Output: evaluation_report.xlsx, a single sheet with one row per
 average character length of the retrieved contexts and the average LLM
 cost/token usage.
 
-Cost is `upstream_inference_cost` (the `cost` field is 0 on the free tier). It is
-reported three ways: total, routing (the tree-walk calls) and generation (the
-final answer call). Only the LLM retriever spends tokens on routing, so
-routing_* is blank for the single-shot retrievers; for those, generation_*
-equals the total by construction.
+Cost is `upstream_inference_cost` (the `cost` field is 0 on the free tier), reported
+as a single total. Token usage is split into routing (the tree-walk calls) and
+generation (the final answer call), each as prompt/completion. Only the LLM
+retriever spends tokens on routing, so routing_* is blank for the single-shot
+retrievers; for those, generation_* equals the total by construction.
 """
 
 import ast
@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pandas as pd
 
-DATA_DIR = Path(__file__).resolve().parent / "django-rest-framework"
+DATA_DIR = Path(__file__).resolve().parent / "playwright"
 OUTPUT_PATH = Path(__file__).resolve().parent / "evaluation_report.xlsx"
 
 # retriever key -> label shown in the report.
@@ -42,10 +42,10 @@ COST_COLS = [
     "llm_calls",
     "total_cost",
     "total_tokens",
-    "routing_cost",
-    "routing_tokens",
-    "generation_cost",
-    "generation_tokens",
+    "routing_prompt_tokens",
+    "routing_completion_tokens",
+    "generation_prompt_tokens",
+    "generation_completion_tokens",
 ]
 CATEGORY_ORDER = ["straightforward", "multi_hop", "intent_driven", "debugging"]
 
@@ -70,10 +70,10 @@ def cost_breakdown(usage):
         "llm_calls": usage.get("calls"),
         "total_cost": usage.get("upstream_inference_cost"),
         "total_tokens": usage.get("total_tokens"),
-        "routing_cost": routing.get("upstream_inference_cost") if routing else float("nan"),
-        "routing_tokens": routing.get("total_tokens") if routing else float("nan"),
-        "generation_cost": generation.get("upstream_inference_cost"),
-        "generation_tokens": generation.get("total_tokens"),
+        "routing_prompt_tokens": routing.get("prompt_tokens") if routing else float("nan"),
+        "routing_completion_tokens": routing.get("completion_tokens") if routing else float("nan"),
+        "generation_prompt_tokens": generation.get("prompt_tokens"),
+        "generation_completion_tokens": generation.get("completion_tokens"),
     }
 
 
