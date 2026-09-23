@@ -52,7 +52,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.stats import binomtest, rankdata, wilcoxon
+from scipy.stats import binomtest, norm, rankdata, wilcoxon
 
 BASE_DIR = Path(__file__).resolve().parent
 CORPORA = {"playwright": BASE_DIR / "playwright", "drf": BASE_DIR / "django-rest-framework"}
@@ -109,13 +109,88 @@ for name, df in dfs.items():
 
 
 def rank_biserial(diffs):
-    """Signed matched-pairs rank-biserial: (W+ - W-) / (W+ + W-). See
+    """Signed matched-pairs rank-biserial: (T+ - T-) / (T+ + T-). See
     ragas_significance.py for why this rather than Z/sqrt(N)."""
     nz = diffs[diffs != 0]
     if nz.size == 0:
         return 0.0
     ranks = rankdata(np.abs(nz))
     return (ranks[nz > 0].sum() - ranks[nz < 0].sum()) / ranks.sum()
+
+
+def signed_rank(x, y):
+    """Wilcoxon signed-rank, in the terms a stats package reports it.
+
+    Identical to signed_rank() in ragas_significance_pooled.py -- kept in step
+    so the pooled and per-category tables are the same test reported the same
+    way. Columns: N (pairs left after zero differences are dropped), T_plus /
+    T_minus (rank sums for x > y and x < y), T = min(T_plus, T_minus), Z
+    (tie- and continuity-corrected), and the three p-values.
+
+    method="approx" is pinned rather than "auto" only to make the choice
+    explicit: every test here has tied |differences|, so scipy's "auto" already
+    falls back to the normal approximation in all of them -- the exact method is
+    never reachable on this data, small n=50 cells included. correction=True is
+    the standard reported form, and is conservative.
+    """
+    diffs = x - y
+    nz = diffs[diffs != 0]
+    n = nz.size
+    if n == 0:  # every pair tied: no signed-rank information at all
+        return dict(N=0, T_plus=0.0, T_minus=0.0, T=np.nan, Z=np.nan,
+                    p_greater=1.0, p_less=1.0, p_two_tailed=1.0,
+                    method="all pairs tied (no test)")
+    ranks = rankdata(np.abs(nz))
+    t_plus, t_minus = float(ranks[nz > 0].sum()), float(ranks[nz < 0].sum())
+    t = min(t_plus, t_minus)
+    mu = n * (n + 1) / 4
+    _, counts = np.unique(np.abs(nz), return_counts=True)
+    sd = np.sqrt(n * (n + 1) * (2 * n + 1) / 24 - np.sum(counts ** 3 - counts) / 48)
+    # Clamp at 0: when T lands within half a rank of its null mean the continuity
+    # correction overshoots and the raw expression goes negative (p = 1 there).
+    z = max((abs(mu - t) - 0.5) / sd, 0.0) if sd > 0 else 0.0
+    kw = dict(zero_method="wilcox", correction=True, method="approx")
+    return dict(N=n, T_plus=t_plus, T_minus=t_minus, T=t, Z=float(z),
+                p_greater=float(wilcoxon(x, y, alternative="greater", **kw)[1]),
+                p_less=float(wilcoxon(x, y, alternative="less", **kw)[1]),
+                p_two_tailed=float(wilcoxon(x, y, **kw)[1]),
+                method="normal with continuity correction")
+
+
+def hodges_lehmann(diffs, alpha=ALPHA):
+    """Hodges-Lehmann point estimate of the median paired difference, with the
+    distribution-free CI that inverts the signed-rank test.
+
+    The interval estimate a Wilcoxon result should be reported with: it puts the
+    effect on the metric's own scale, which the rank-biserial r cannot. Walsh
+    averages (all pairwise means of the differences) are the signed-rank test's
+    natural estimator; the CI is the k-th smallest/largest Walsh average, with k
+    read off the null distribution of W.
+    """
+    nz = diffs[diffs != 0]
+    n = nz.size
+    if n == 0:
+        return 0.0, 0.0, 0.0
+    walsh = np.add.outer(nz, nz)[np.triu_indices(n)] / 2.0
+    walsh.sort()
+    estimate = float(np.median(walsh))
+    # k = number of Walsh averages to trim from each tail. Normal approximation
+    # to the signed-rank null; exact enough at these n and never below 1.
+    z = norm.ppf(1 - alpha / 2)
+    k = int(round(n * (n + 1) / 4 - z * np.sqrt(n * (n + 1) * (2 * n + 1) / 24)))
+    k = min(max(k, 0), walsh.size // 2)
+    return estimate, float(walsh[k]), float(walsh[walsh.size - 1 - k])
+
+
+def wilson(successes, total, alpha=ALPHA):
+    """Wilson score interval -- for reporting a raw failure rate, not a contrast."""
+    if total == 0:
+        return 0.0, 0.0
+    z = norm.ppf(1 - alpha / 2)
+    p, z2 = successes / total, z * z
+    centre = (p + z2 / (2 * total)) / (1 + z2 / total)
+    half = z * np.sqrt(p * (1 - p) / total + z2 / (4 * total * total)) / (1 + z2 / total)
+    return float(centre - half), float(centre + half)
 
 
 def holm(pvalues):
@@ -139,29 +214,49 @@ for outcome in OUTCOMES:
             diffs = x - y
 
             row = dict(outcome=outcome, category=cat, comparison=f"{a} vs {b}",
-                       n=len(x), mean_a=x.mean(), mean_b=y.mean(), diff=x.mean() - y.mean())
+                       n=len(x), mean_a=x.mean(), mean_b=y.mean(), diff=x.mean() - y.mean(),
+                       median_a=float(np.median(x)), median_b=float(np.median(y)),
+                       iqr_a=float(np.subtract(*np.percentile(x, [75, 25]))),
+                       iqr_b=float(np.subtract(*np.percentile(y, [75, 25]))))
 
             if outcome == "retrieval_failed":
-                # Paired binary -> exact McNemar on the discordant pairs.
+                # Paired binary -> exact McNemar on the discordant pairs. On a 0/1
+                # outcome the signed-rank test degenerates to the sign test, of
+                # which this is the exact form; scipy's wilcoxon would fall back to
+                # the normal approximation here (every |difference| is tied) and is
+                # roughly 2x anti-conservative at these discordant-pair counts.
                 a_only, b_only = int(((x == 1) & (y == 0)).sum()), int(((x == 0) & (y == 1)).sum())
                 n_disc = a_only + b_only
-                row.update(n_informative=n_disc,
-                           p_value=binomtest(a_only, n_disc, 0.5).pvalue if n_disc else 1.0,
+                # Contrast is a rate difference, so report it with its own CI
+                # rather than a Hodges-Lehmann median (which is 0/±1 on binary data).
+                lo_a, hi_a = wilson(int(x.sum()), len(x))
+                lo_b, hi_b = wilson(int(y.sum()), len(y))
+                # Same column names as the signed-rank rows; T_plus/T_minus/Z do
+                # not exist for a sign test, so they stay blank, not faked.
+                bt = lambda alt: binomtest(a_only, n_disc, 0.5, alternative=alt).pvalue if n_disc else 1.0
+                row.update(N=n_disc, T_plus=np.nan, T_minus=np.nan,
+                           T=float(a_only), Z=np.nan, p_greater=bt("greater"),
+                           p_less=bt("less"), p_two_tailed=bt("two-sided"),
                            # Signed so + always favours llm_retriever, matching the
                            # other outcomes (fewer failures = better).
-                           effect=(b_only - a_only) / n_disc if n_disc else 0.0)
+                           effect=(b_only - a_only) / n_disc if n_disc else 0.0,
+                           hl=np.nan, hl_lo=lo_a - hi_b, hl_hi=hi_a - lo_b,
+                           discordant_a=a_only, discordant_b=b_only,
+                           method="exact (binomial)")
             else:
-                row.update(n_informative=int((diffs != 0).sum()), effect=rank_biserial(diffs),
-                           p_value=1.0 if np.all(diffs == 0)
-                           else wilcoxon(x, y, zero_method="wilcox", correction=False, method="auto")[1])
+                hl, hl_lo, hl_hi = hodges_lehmann(diffs)
+                row.update(effect=rank_biserial(diffs),
+                           hl=hl, hl_lo=hl_lo, hl_hi=hl_hi,
+                           discordant_a=np.nan, discordant_b=np.nan,
+                           **signed_rank(x, y))
             rows.append(row)
 
 results = pd.DataFrame(rows)
 # Primary: Holm within each outcome family (8 tests each).
-results["p_holm"] = results.groupby("outcome")["p_value"].transform(lambda s: holm(s.values))
+results["p_holm"] = results.groupby("outcome")["p_two_tailed"].transform(lambda s: holm(s.values))
 results[f"sig_{ALPHA}"] = results["p_holm"] < ALPHA
 # Sensitivity: Holm across every test run here, the conservative reading.
-results["p_holm_global"] = holm(results["p_value"].values)
+results["p_holm_global"] = holm(results["p_two_tailed"].values)
 results[f"sig_global_{ALPHA}"] = results["p_holm_global"] < ALPHA
 
 pd.set_option("display.width", 220)
@@ -172,16 +267,18 @@ LABELS = {"context_precision": "context_precision (primary — the pooled analys
 for outcome in OUTCOMES:
     sub = results[results["outcome"] == outcome].copy()
     sub["category"] = pd.Categorical(sub["category"], CATEGORIES, ordered=True)
+    sub = sub.sort_values(["comparison", "category"])
     print(f"\n=== {LABELS.get(outcome, outcome)} — Holm within {len(sub)} tests ===")
-    print(sub.sort_values(["comparison", "category"])[
-        ["category", "comparison", "n", "n_informative", "mean_a", "mean_b", "diff",
-         "p_value", "p_holm", f"sig_{ALPHA}", "p_holm_global", f"sig_global_{ALPHA}",
-         "effect"]].round(4).to_string(index=False))
+    print(sub[["category", "comparison", "n", "N", "T_plus", "T_minus", "T", "Z",
+               "p_greater", "p_less", "p_two_tailed", "method"]].round(6).to_string(index=False))
+    print(sub[["category", "comparison", "mean_a", "mean_b", "diff", "hl", "hl_lo", "hl_hi",
+               "p_two_tailed", "p_holm", f"sig_{ALPHA}", "p_holm_global",
+               f"sig_global_{ALPHA}", "effect"]].round(4).to_string(index=False))
 
-hits = results[results[f"sig_{ALPHA}"]].sort_values("p_value")
+hits = results[results[f"sig_{ALPHA}"]].sort_values("p_two_tailed")
 print(f"\n=== SUMMARY: {len(hits)} of {len(results)} tests significant within-family; "
       f"{int(results[f'sig_global_{ALPHA}'].sum())} survive global Holm ===")
-print(hits[["outcome", "category", "comparison", "diff", "p_value", "p_holm",
+print(hits[["outcome", "category", "comparison", "diff", "T", "Z", "p_two_tailed", "p_holm",
             "p_holm_global", f"sig_global_{ALPHA}", "effect"]].round(4).to_string(index=False))
 
 results.to_csv(RESULTS_CSV, index=False)
