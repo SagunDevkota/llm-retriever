@@ -1,0 +1,52 @@
+{
+  "llm_retriever": {
+    "records": 100,
+    "average_routing_input_tokens": 37687.89,
+    "average_routing_output_tokens": 640.28,
+    "average_generation_input_tokens": 2983.14,
+    "average_generation_output_tokens": 268.06,
+    "average_routing_input_cost": 0.0011306367,
+    "average_routing_output_cost": 0.0002048896,
+    "average_routing_cost": 0.0013355263,
+    "average_generation_input_cost": 0.000745785,
+    "average_generation_output_cost": 0.00040208999999999997,
+    "average_generation_cost": 0.001147875,
+    "average_total_cost": 0.0024834013
+  },
+  "raptor": {
+    "records": 100,
+    "average_routing_input_tokens": 0.0,
+    "average_routing_output_tokens": 0.0,
+    "average_generation_input_tokens": 2138.07,
+    "average_generation_output_tokens": 186.83,
+    "average_routing_input_cost": 0.0,
+    "average_routing_output_cost": 0.0,
+    "average_routing_cost": 0.0,
+    "average_generation_input_cost": 0.0005345175,
+    "average_generation_output_cost": 0.00028024500000000004,
+    "average_generation_cost": 0.0008147625000000001,
+    "average_total_cost": 0.0008147625000000001
+  },
+  "naive": {
+    "records": 100,
+    "average_routing_input_tokens": 0.0,
+    "average_routing_output_tokens": 0.0,
+    "average_generation_input_tokens": 2098.07,
+    "average_generation_output_tokens": 185.59,
+    "average_routing_input_cost": 0.0,
+    "average_routing_output_cost": 0.0,
+    "average_routing_cost": 0.0,
+    "average_generation_input_cost": 0.0005245175,
+    "average_generation_output_cost": 0.00027838499999999997,
+    "average_generation_cost": 0.0008029025,
+    "average_total_cost": 0.0008029025
+  },
+  "comparison": {
+    "llm_retriever_average_cost": 0.0024834013,
+    "raptor_average_cost": 0.0008147625000000001,
+    "naive_average_cost": 0.0008029025,
+    "raptor_naive_average_cost": 0.0008088325000000001,
+    "formula": "llm_retriever / ((raptor + naive) / 2)",
+    "cost_ratio": 3.0703530088120843
+  }
+}
