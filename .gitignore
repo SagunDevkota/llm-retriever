@@ -17,3 +17,4 @@ diagrams
 *.ipynb
 *.md
 *.env
+!README.md
