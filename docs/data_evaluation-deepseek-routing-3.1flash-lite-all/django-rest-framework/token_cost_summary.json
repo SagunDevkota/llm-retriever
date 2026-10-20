@@ -41,12 +41,30 @@
     "average_generation_cost": 0.0008167025,
     "average_total_cost": 0.0008167025
   },
+  "hybrid": {
+    "records": 100,
+    "average_routing_input_tokens": 0.0,
+    "average_routing_output_tokens": 0.0,
+    "average_generation_input_tokens": 2142.3,
+    "average_generation_output_tokens": 202.81,
+    "average_routing_input_cost": 0.0,
+    "average_routing_output_cost": 0.0,
+    "average_routing_cost": 0.0,
+    "average_generation_input_cost": 0.000535575,
+    "average_generation_output_cost": 0.000304215,
+    "average_generation_cost": 0.00083979,
+    "average_total_cost": 0.00083979
+  },
   "comparison": {
     "llm_retriever_average_cost": 0.0018338864,
     "raptor_average_cost": 0.0008627125,
     "naive_average_cost": 0.0008167025,
-    "raptor_naive_average_cost": 0.0008397075,
-    "formula": "llm_retriever / ((raptor + naive) / 2)",
-    "cost_ratio": 2.1839585808153434
+    "hybrid_average_cost": 0.00083979,
+    "baseline_average_cost": 0.000839735,
+    "formula": "llm_retriever / ((raptor + naive + hybrid) / 3)",
+    "cost_ratio": 2.183887059608091,
+    "cost_ratio_vs_raptor": 2.1257213729950593,
+    "cost_ratio_vs_naive": 2.245476657656858,
+    "cost_ratio_vs_hybrid": 2.1837440312459067
   }
 }

@@ -150,6 +150,7 @@ files = {
     "llm_retriever": "questions_llm_retriever.json",
     "raptor": "questions_raptor.json",
     "naive": "questions_naive_rag.json",
+    "hybrid": "questions_hybrid_rerank_playwright.json",
 }
 
 
@@ -163,14 +164,15 @@ for name, file_path in files.items():
 # ---------------------------------------------------------
 # Comparison:
 #
-# llm_retriever / ((raptor + naive) / 2)
+# llm_retriever / ((raptor + naive + hybrid) / 3)
 # ---------------------------------------------------------
 
 llm_retriever_cost = results["llm_retriever"]["average_total_cost"]
 raptor_cost = results["raptor"]["average_total_cost"]
 naive_cost = results["naive"]["average_total_cost"]
+hybrid_cost = results["hybrid"]["average_total_cost"]
 
-baseline_average_cost = (raptor_cost + naive_cost) / 2
+baseline_average_cost = (raptor_cost + naive_cost + hybrid_cost) / 3
 
 cost_ratio = llm_retriever_cost / baseline_average_cost
 
@@ -179,9 +181,13 @@ comparison = {
     "llm_retriever_average_cost": llm_retriever_cost,
     "raptor_average_cost": raptor_cost,
     "naive_average_cost": naive_cost,
-    "raptor_naive_average_cost": baseline_average_cost,
-    "formula": "llm_retriever / ((raptor + naive) / 2)",
+    "hybrid_average_cost": hybrid_cost,
+    "baseline_average_cost": baseline_average_cost,
+    "formula": "llm_retriever / ((raptor + naive + hybrid) / 3)",
     "cost_ratio": cost_ratio,
+    "cost_ratio_vs_raptor": llm_retriever_cost / raptor_cost,
+    "cost_ratio_vs_naive": llm_retriever_cost / naive_cost,
+    "cost_ratio_vs_hybrid": llm_retriever_cost / hybrid_cost,
 }
 
 results["comparison"] = comparison
@@ -192,9 +198,13 @@ print("=" * 60)
 print(f"LLM Retriever:        ${llm_retriever_cost:.8f}")
 print(f"RAPTOR:               ${raptor_cost:.8f}")
 print(f"Naive RAG:            ${naive_cost:.8f}")
-print(f"RAPTOR + Naive avg:   ${baseline_average_cost:.8f}")
+print(f"Hybrid + rerank:      ${hybrid_cost:.8f}")
+print(f"Baseline avg:         ${baseline_average_cost:.8f}")
 print("-" * 60)
 print(f"LLM Retriever ratio:  {cost_ratio:.4f}x")
+print(f"  vs RAPTOR:          {comparison['cost_ratio_vs_raptor']:.4f}x")
+print(f"  vs Naive RAG:       {comparison['cost_ratio_vs_naive']:.4f}x")
+print(f"  vs Hybrid + rerank: {comparison['cost_ratio_vs_hybrid']:.4f}x")
 
 
 # ---------------------------------------------------------
