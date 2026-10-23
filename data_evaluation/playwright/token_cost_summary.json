@@ -1,0 +1,159 @@
+{
+  "llm_retriever": {
+    "records": 100,
+    "average_routing_input_tokens": 37687.89,
+    "average_routing_output_tokens": 640.28,
+    "average_generation_input_tokens": 2983.14,
+    "average_generation_output_tokens": 268.06,
+    "average_routing_input_cost": 0.0011306367,
+    "average_routing_output_cost": 0.0002048896,
+    "average_routing_cost": 0.0013355263,
+    "average_generation_input_cost": 0.000745785,
+    "average_generation_output_cost": 0.00040208999999999997,
+    "average_generation_cost": 0.001147875,
+    "average_total_cost": 0.0024834013,
+    "average_input_tokens": 40671.03,
+    "average_output_tokens": 908.3399999999999,
+    "average_total_tokens": 41579.369999999995
+  },
+  "raptor": {
+    "records": 100,
+    "average_routing_input_tokens": 0.0,
+    "average_routing_output_tokens": 0.0,
+    "average_generation_input_tokens": 2138.07,
+    "average_generation_output_tokens": 186.83,
+    "average_routing_input_cost": 0.0,
+    "average_routing_output_cost": 0.0,
+    "average_routing_cost": 0.0,
+    "average_generation_input_cost": 0.0005345175,
+    "average_generation_output_cost": 0.00028024500000000004,
+    "average_generation_cost": 0.0008147625000000001,
+    "average_total_cost": 0.0008147625000000001,
+    "average_input_tokens": 2138.07,
+    "average_output_tokens": 186.83,
+    "average_total_tokens": 2324.9
+  },
+  "naive": {
+    "records": 100,
+    "average_routing_input_tokens": 0.0,
+    "average_routing_output_tokens": 0.0,
+    "average_generation_input_tokens": 2098.07,
+    "average_generation_output_tokens": 185.59,
+    "average_routing_input_cost": 0.0,
+    "average_routing_output_cost": 0.0,
+    "average_routing_cost": 0.0,
+    "average_generation_input_cost": 0.0005245175,
+    "average_generation_output_cost": 0.00027838499999999997,
+    "average_generation_cost": 0.0008029025,
+    "average_total_cost": 0.0008029025,
+    "average_input_tokens": 2098.07,
+    "average_output_tokens": 185.59,
+    "average_total_tokens": 2283.6600000000003
+  },
+  "hybrid": {
+    "records": 100,
+    "average_routing_input_tokens": 0.0,
+    "average_routing_output_tokens": 0.0,
+    "average_generation_input_tokens": 2188.24,
+    "average_generation_output_tokens": 191.23,
+    "average_routing_input_cost": 0.0,
+    "average_routing_output_cost": 0.0,
+    "average_routing_cost": 0.0,
+    "average_generation_input_cost": 0.0005470599999999999,
+    "average_generation_output_cost": 0.000286845,
+    "average_generation_cost": 0.0008339049999999999,
+    "average_total_cost": 0.0008339049999999999,
+    "average_input_tokens": 2188.24,
+    "average_output_tokens": 191.23,
+    "average_total_tokens": 2379.47
+  },
+  "rankgpt": {
+    "records": 100,
+    "average_routing_input_tokens": 37835.92,
+    "average_routing_output_tokens": 661.24,
+    "average_generation_input_tokens": 2142.63,
+    "average_generation_output_tokens": 224.03,
+    "average_routing_input_cost": 0.0011350775999999997,
+    "average_routing_output_cost": 0.0002115968,
+    "average_routing_cost": 0.0013466743999999997,
+    "average_generation_input_cost": 0.0005356575,
+    "average_generation_output_cost": 0.000336045,
+    "average_generation_cost": 0.0008717025,
+    "average_total_cost": 0.0022183768999999996,
+    "average_input_tokens": 39978.549999999996,
+    "average_output_tokens": 885.27,
+    "average_total_tokens": 40863.81999999999
+  },
+  "comparison": {
+    "baseline": "naive",
+    "baseline_average_cost": 0.0008029025,
+    "formula": "method_cost / min(method_costs)",
+    "ranking": [
+      {
+        "method": "naive",
+        "average_cost": 0.0008029025,
+        "cost_multiple": 1.0
+      },
+      {
+        "method": "raptor",
+        "average_cost": 0.0008147625000000001,
+        "cost_multiple": 1.0147714074872105
+      },
+      {
+        "method": "hybrid",
+        "average_cost": 0.0008339049999999999,
+        "cost_multiple": 1.0386130320929376
+      },
+      {
+        "method": "rankgpt",
+        "average_cost": 0.0022183768999999996,
+        "cost_multiple": 2.7629468086100113
+      },
+      {
+        "method": "llm_retriever",
+        "average_cost": 0.0024834013,
+        "cost_multiple": 3.093029726523457
+      }
+    ],
+    "token_baseline": "naive",
+    "token_baseline_average_tokens": 2283.6600000000003,
+    "token_formula": "method_total_tokens / min(method_total_tokens)",
+    "token_ranking": [
+      {
+        "method": "naive",
+        "average_input_tokens": 2098.07,
+        "average_output_tokens": 185.59,
+        "average_total_tokens": 2283.6600000000003,
+        "token_multiple": 1.0
+      },
+      {
+        "method": "raptor",
+        "average_input_tokens": 2138.07,
+        "average_output_tokens": 186.83,
+        "average_total_tokens": 2324.9,
+        "token_multiple": 1.0180587302838424
+      },
+      {
+        "method": "hybrid",
+        "average_input_tokens": 2188.24,
+        "average_output_tokens": 191.23,
+        "average_total_tokens": 2379.47,
+        "token_multiple": 1.0419545816802849
+      },
+      {
+        "method": "rankgpt",
+        "average_input_tokens": 39978.549999999996,
+        "average_output_tokens": 885.27,
+        "average_total_tokens": 40863.81999999999,
+        "token_multiple": 17.894003485632705
+      },
+      {
+        "method": "llm_retriever",
+        "average_input_tokens": 40671.03,
+        "average_output_tokens": 908.3399999999999,
+        "average_total_tokens": 41579.369999999995,
+        "token_multiple": 18.207338220225424
+      }
+    ]
+  }
+}

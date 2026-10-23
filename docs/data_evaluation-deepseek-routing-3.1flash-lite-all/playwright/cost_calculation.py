@@ -26,10 +26,10 @@ def average_tokens_and_cost(file_path: str) -> dict:
             routing = llm_cost["routing"]
 
             routing_input_tokens.append(
-                routing.get("prompt_tokens", 0)
+                routing.get("prompt_tokens") or 0
             )
             routing_output_tokens.append(
-                routing.get("completion_tokens", 0)
+                routing.get("completion_tokens") or 0
             )
         else:
             routing_input_tokens.append(0)
@@ -40,20 +40,20 @@ def average_tokens_and_cost(file_path: str) -> dict:
             generation = llm_cost["generation"]
 
             generation_input_tokens.append(
-                generation.get("prompt_tokens", 0)
+                generation.get("prompt_tokens") or 0
             )
             generation_output_tokens.append(
-                generation.get("completion_tokens", 0)
+                generation.get("completion_tokens") or 0
             )
         else:
             # Flat/non-nested llm_cost:
             # prompt_tokens     -> generation input
             # completion_tokens -> generation output
             generation_input_tokens.append(
-                llm_cost.get("prompt_tokens", 0)
+                llm_cost.get("prompt_tokens") or 0
             )
             generation_output_tokens.append(
-                llm_cost.get("completion_tokens", 0)
+                llm_cost.get("completion_tokens") or 0
             )
 
     count = len(data)
@@ -104,6 +104,13 @@ def average_tokens_and_cost(file_path: str) -> dict:
         "average_generation_cost": generation_cost,
 
         "average_total_cost": total_cost,
+
+        "average_input_tokens": avg_routing_input + avg_generation_input,
+        "average_output_tokens": avg_routing_output + avg_generation_output,
+        "average_total_tokens": (
+            avg_routing_input + avg_routing_output
+            + avg_generation_input + avg_generation_output
+        ),
     }
 
 
@@ -151,12 +158,17 @@ files = {
     "raptor": "questions_raptor.json",
     "naive": "questions_naive_rag.json",
     "hybrid": "questions_hybrid_rerank_playwright.json",
+    "ketrag": "questions_ketrag.json",
+    "rankgpt": "questions_rankgpt.json",
 }
 
 
 results = {}
 
 for name, file_path in files.items():
+    if not Path(file_path).exists():
+        print(f"\nSkipping {name}: {file_path} not found")
+        continue
     results[name] = average_tokens_and_cost(file_path)
     print_results(name, results[name])
 
@@ -164,47 +176,79 @@ for name, file_path in files.items():
 # ---------------------------------------------------------
 # Comparison:
 #
-# llm_retriever / ((raptor + naive + hybrid) / 3)
+# cheapest method = 1x, every other method = cost / cheapest
 # ---------------------------------------------------------
 
-llm_retriever_cost = results["llm_retriever"]["average_total_cost"]
-raptor_cost = results["raptor"]["average_total_cost"]
-naive_cost = results["naive"]["average_total_cost"]
-hybrid_cost = results["hybrid"]["average_total_cost"]
+costs = {
+    name: result["average_total_cost"]
+    for name, result in results.items()
+}
 
-baseline_average_cost = (raptor_cost + naive_cost + hybrid_cost) / 3
+cheapest = min(costs, key=costs.get)
+cheapest_cost = costs[cheapest]
 
-cost_ratio = llm_retriever_cost / baseline_average_cost
+ranking = [
+    {
+        "method": name,
+        "average_cost": cost,
+        "cost_multiple": cost / cheapest_cost,
+    }
+    for name, cost in sorted(costs.items(), key=lambda kv: kv[1])
+]
 
+tokens = {
+    name: result["average_total_tokens"]
+    for name, result in results.items()
+}
+
+fewest = min(tokens, key=tokens.get)
+fewest_tokens = tokens[fewest]
+
+token_ranking = [
+    {
+        "method": name,
+        "average_input_tokens": results[name]["average_input_tokens"],
+        "average_output_tokens": results[name]["average_output_tokens"],
+        "average_total_tokens": total,
+        "token_multiple": total / fewest_tokens,
+    }
+    for name, total in sorted(tokens.items(), key=lambda kv: kv[1])
+]
 
 comparison = {
-    "llm_retriever_average_cost": llm_retriever_cost,
-    "raptor_average_cost": raptor_cost,
-    "naive_average_cost": naive_cost,
-    "hybrid_average_cost": hybrid_cost,
-    "baseline_average_cost": baseline_average_cost,
-    "formula": "llm_retriever / ((raptor + naive + hybrid) / 3)",
-    "cost_ratio": cost_ratio,
-    "cost_ratio_vs_raptor": llm_retriever_cost / raptor_cost,
-    "cost_ratio_vs_naive": llm_retriever_cost / naive_cost,
-    "cost_ratio_vs_hybrid": llm_retriever_cost / hybrid_cost,
+    "baseline": cheapest,
+    "baseline_average_cost": cheapest_cost,
+    "formula": "method_cost / min(method_costs)",
+    "ranking": ranking,
+    "token_baseline": fewest,
+    "token_baseline_average_tokens": fewest_tokens,
+    "token_formula": "method_total_tokens / min(method_total_tokens)",
+    "token_ranking": token_ranking,
 }
 
 results["comparison"] = comparison
 
 
-print("\nCOMPARISON")
+print("\nCOMPARISON (relative to cheapest)")
 print("=" * 60)
-print(f"LLM Retriever:        ${llm_retriever_cost:.8f}")
-print(f"RAPTOR:               ${raptor_cost:.8f}")
-print(f"Naive RAG:            ${naive_cost:.8f}")
-print(f"Hybrid + rerank:      ${hybrid_cost:.8f}")
-print(f"Baseline avg:         ${baseline_average_cost:.8f}")
-print("-" * 60)
-print(f"LLM Retriever ratio:  {cost_ratio:.4f}x")
-print(f"  vs RAPTOR:          {comparison['cost_ratio_vs_raptor']:.4f}x")
-print(f"  vs Naive RAG:       {comparison['cost_ratio_vs_naive']:.4f}x")
-print(f"  vs Hybrid + rerank: {comparison['cost_ratio_vs_hybrid']:.4f}x")
+for row in ranking:
+    print(
+        f"{row['method']:<16} ${row['average_cost']:.8f}"
+        f"   {row['cost_multiple']:.4f}x"
+    )
+
+
+print("\nTOKEN COMPARISON (relative to fewest total tokens)")
+print("=" * 60)
+print(f"{'method':<16} {'input':>12} {'output':>10} {'total':>12}  multiple")
+for row in token_ranking:
+    print(
+        f"{row['method']:<16}"
+        f" {row['average_input_tokens']:>12,.2f}"
+        f" {row['average_output_tokens']:>10,.2f}"
+        f" {row['average_total_tokens']:>12,.2f}"
+        f"  {row['token_multiple']:.4f}x"
+    )
 
 
 # ---------------------------------------------------------
