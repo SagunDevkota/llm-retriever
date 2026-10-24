@@ -67,6 +67,23 @@
     "average_output_tokens": 191.23,
     "average_total_tokens": 2379.47
   },
+  "ketrag": {
+    "records": 100,
+    "average_routing_input_tokens": 0.0,
+    "average_routing_output_tokens": 0.0,
+    "average_generation_input_tokens": 2211.44,
+    "average_generation_output_tokens": 158.44,
+    "average_routing_input_cost": 0.0,
+    "average_routing_output_cost": 0.0,
+    "average_routing_cost": 0.0,
+    "average_generation_input_cost": 0.00055286,
+    "average_generation_output_cost": 0.00023766,
+    "average_generation_cost": 0.00079052,
+    "average_total_cost": 0.00079052,
+    "average_input_tokens": 2211.44,
+    "average_output_tokens": 158.44,
+    "average_total_tokens": 2369.88
+  },
   "rankgpt": {
     "records": 100,
     "average_routing_input_tokens": 37835.92,
@@ -85,34 +102,39 @@
     "average_total_tokens": 40863.81999999999
   },
   "comparison": {
-    "baseline": "naive",
-    "baseline_average_cost": 0.0008029025,
+    "baseline": "ketrag",
+    "baseline_average_cost": 0.00079052,
     "formula": "method_cost / min(method_costs)",
     "ranking": [
       {
+        "method": "ketrag",
+        "average_cost": 0.00079052,
+        "cost_multiple": 1.0
+      },
+      {
         "method": "naive",
         "average_cost": 0.0008029025,
-        "cost_multiple": 1.0
+        "cost_multiple": 1.0156637403228257
       },
       {
         "method": "raptor",
         "average_cost": 0.0008147625000000001,
-        "cost_multiple": 1.0147714074872105
+        "cost_multiple": 1.0306665233011183
       },
       {
         "method": "hybrid",
         "average_cost": 0.0008339049999999999,
-        "cost_multiple": 1.0386130320929376
+        "cost_multiple": 1.0548815969235439
       },
       {
         "method": "rankgpt",
         "average_cost": 0.0022183768999999996,
-        "cost_multiple": 2.7629468086100113
+        "cost_multiple": 2.806224889945858
       },
       {
         "method": "llm_retriever",
         "average_cost": 0.0024834013,
-        "cost_multiple": 3.093029726523457
+        "cost_multiple": 3.141478140970501
       }
     ],
     "token_baseline": "naive",
@@ -132,6 +154,13 @@
         "average_output_tokens": 186.83,
         "average_total_tokens": 2324.9,
         "token_multiple": 1.0180587302838424
+      },
+      {
+        "method": "ketrag",
+        "average_input_tokens": 2211.44,
+        "average_output_tokens": 158.44,
+        "average_total_tokens": 2369.88,
+        "token_multiple": 1.0377551824702451
       },
       {
         "method": "hybrid",

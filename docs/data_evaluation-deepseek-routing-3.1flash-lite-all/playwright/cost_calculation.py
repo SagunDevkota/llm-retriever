@@ -158,7 +158,7 @@ files = {
     "raptor": "questions_raptor.json",
     "naive": "questions_naive_rag.json",
     "hybrid": "questions_hybrid_rerank_playwright.json",
-    "ketrag": "questions_ketrag.json",
+    "ketrag": "questions_ketrag_playwright.json",
     "rankgpt": "questions_rankgpt.json",
 }
 
