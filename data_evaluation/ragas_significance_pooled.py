@@ -6,10 +6,13 @@ Companion to ragas_significance_by_category.py, which slices the same data by
 question type. This script produces the numbers behind the paper's sections
 5.1 (retrieval quality), 5.2 (answer quality + equivalence) and 5.4 (cost).
 
-Design: all three pipelines answer the same 200 questions (100 Playwright +
-100 DRF), so every comparison is paired at the question level. The two corpora
-are pooled with pairing preserved; per-corpus results are printed alongside as
-a robustness check, since effect magnitudes differ between them.
+Design: every pipeline answers the same question set (100 Playwright + 100 DRF),
+so every comparison is paired at the question level. llm_retriever is compared
+against every baseline in BASELINES. Pairs are matched on (corpus, user_input),
+so a baseline that has only been run on one corpus (e.g. KETRAG, DRF only) is
+compared on the questions both pipelines answered -- check `n` per row. The two
+corpora are pooled with pairing preserved; per-corpus results are printed
+alongside as a robustness check, since effect magnitudes differ between them.
 
 Tests mirror the by-category script exactly, so the two analyses are directly
 comparable:
@@ -26,8 +29,8 @@ comparable:
   - Interval estimate: Hodges-Lehmann median paired difference with the
     distribution-free CI that inverts the signed-rank test.
 
-Holm correction is applied across the family of pooled tests (7 outcomes x 2
-comparisons = 14 tests).
+Holm correction is applied across the family of pooled tests (7 outcomes x
+one comparison per baseline).
 
 ROUGE is excluded for the reasons given in ragas_significance_by_category.py.
 
@@ -47,8 +50,8 @@ from scipy.stats import binomtest, norm, rankdata, wilcoxon
 
 BASE_DIR = Path(__file__).resolve().parent
 CORPORA = {"playwright": BASE_DIR / "playwright", "drf": BASE_DIR / "django-rest-framework"}
-RETRIEVERS = ["naive_rag", "llm_retriever", "raptor"]
-COMPARISONS = [("llm_retriever", "naive_rag"), ("llm_retriever", "raptor")]
+BASELINES = ["naive_rag", "raptor", "hybrid_rerank", "ketrag", "rankgpt"]
+RETRIEVERS = ["llm_retriever"] + BASELINES
 
 FILE_METRICS = [
     "answer_accuracy",
@@ -69,16 +72,30 @@ SEED = 20240728
 RESULTS_CSV = BASE_DIR / "ragas_significance_pooled.csv"
 
 
+def questions_file(folder, retriever):
+    """questions_<retriever>.json, or the corpus-suffixed variant (questions_hybrid_rerank_playwright.json)."""
+    for path in (folder / f"questions_{retriever}.json", folder / f"questions_{retriever}_{folder.name}.json"):
+        if path.exists():
+            return path
+    return None
+
+
 def load(retriever):
-    """Merge both corpora for one pipeline, attaching each question's category."""
+    """Merge every corpus a pipeline was run on, attaching each question's category.
+    Returns None when the pipeline has no results in any corpus."""
     parts = []
     for corpus, folder in CORPORA.items():
-        df = pd.read_excel(folder / f"ragas_results_{retriever}.xlsx")
-        cats = {q["user_input"]: q["category"]
-                for q in json.loads((folder / f"questions_{retriever}.json").read_text())}
+        ragas_path, q_path = folder / f"ragas_results_{retriever}.xlsx", questions_file(folder, retriever)
+        if q_path is None or not ragas_path.exists():
+            print(f"[load] {retriever}: no results for {corpus}, skipped")
+            continue
+        df = pd.read_excel(ragas_path)
+        cats = {q["user_input"]: q["category"] for q in json.loads(q_path.read_text())}
         df.insert(0, "corpus", corpus)
         df.insert(1, "category", df["user_input"].map(cats))
         parts.append(df)
+    if not parts:
+        return None
     merged = pd.concat(parts, ignore_index=True)
     if merged["category"].isna().any():
         raise ValueError(f"{retriever}: some questions have no category (join by user_input failed)")
@@ -232,25 +249,34 @@ def boot_mean_ci(diffs, level=0.90, n_boot=BOOT, seed=SEED):
     return float(lo), float(hi)
 
 
-dfs = {r: load(r) for r in RETRIEVERS}
+dfs = {r: df for r in RETRIEVERS if (df := load(r)) is not None}
+if "llm_retriever" not in dfs:
+    raise SystemExit("llm_retriever results are required")
+RETRIEVERS = list(dfs)
+COMPARISONS = [("llm_retriever", b) for b in RETRIEVERS if b != "llm_retriever"]
 
-reference = dfs["llm_retriever"][["corpus", "user_input", "category"]]
-for name, df in dfs.items():
-    pd.testing.assert_frame_equal(
-        df[["corpus", "user_input", "category"]].reset_index(drop=True),
-        reference.reset_index(drop=True),
-        obj=f"{name} question alignment",
-    )
+
+def paired(a, b):
+    """Question-level pairs of pipelines a and b, matched on (corpus, user_input).
+    Columns carry an _a / _b suffix; row order follows a."""
+    m = dfs[a].merge(dfs[b], on=["corpus", "user_input"], suffixes=("_a", "_b"), validate="one_to_one")
+    if not (m["category_a"] == m["category_b"]).all():
+        raise ValueError(f"{a} vs {b}: same question has different categories")
+    unmatched = len(dfs[b]) - len(m)
+    if unmatched:
+        raise ValueError(f"{a} vs {b}: {unmatched} {b} questions have no {a} counterpart")
+    return m
 
 pd.set_option("display.width", 240)
 pd.set_option("display.max_columns", None)
 
 # ---------------------------------------------------------------- pooled tests
 rows = []
+pairs = {(a, b): paired(a, b) for a, b in COMPARISONS}
 for outcome in OUTCOMES:
     for a, b in COMPARISONS:
-        x = dfs[a][outcome].to_numpy(float)
-        y = dfs[b][outcome].to_numpy(float)
+        x = pairs[a, b][f"{outcome}_a"].to_numpy(float)
+        y = pairs[a, b][f"{outcome}_b"].to_numpy(float)
         ok = ~(np.isnan(x) | np.isnan(y))
         rows.append(dict(outcome=outcome, comparison=f"{a} vs {b}",
                          **paired_test(x[ok], y[ok], outcome)))
@@ -261,7 +287,7 @@ results[f"sig_{ALPHA}"] = results["p_holm"] < ALPHA
 
 # Two views of the same rows: the test as a calculator reports it, then the
 # effect sizes and the multiplicity-corrected decision.
-print(f"=== 5.1/5.2 POOLED (n=200) -- Wilcoxon signed-rank statistics ===")
+print(f"=== 5.1/5.2 POOLED (n = paired questions per comparison) -- Wilcoxon signed-rank statistics ===")
 print(results[["outcome", "comparison", "n", "N", "T_plus", "T_minus", "T", "Z",
                "p_greater", "p_less", "p_two_tailed", "method"]].round(6).to_string(index=False))
 print("  n = pairs; N = pairs left after dropping zero differences;"
@@ -278,8 +304,10 @@ per_corpus = []
 for corpus in CORPORA:
     for outcome in OUTCOMES:
         for a, b in COMPARISONS:
-            ma, mb = dfs[a]["corpus"] == corpus, dfs[b]["corpus"] == corpus
-            x, y = dfs[a].loc[ma, outcome].to_numpy(float), dfs[b].loc[mb, outcome].to_numpy(float)
+            sub = pairs[a, b][pairs[a, b]["corpus"] == corpus]
+            if sub.empty:  # baseline not run on this corpus
+                continue
+            x, y = sub[f"{outcome}_a"].to_numpy(float), sub[f"{outcome}_b"].to_numpy(float)
             ok = ~(np.isnan(x) | np.isnan(y))
             per_corpus.append(dict(corpus=corpus, outcome=outcome, comparison=f"{a} vs {b}",
                                    **paired_test(x[ok], y[ok], outcome)))
@@ -287,15 +315,17 @@ per_corpus = pd.DataFrame(per_corpus)
 pivot = per_corpus.pivot_table(index=["outcome", "comparison"], columns="corpus",
                                values=["diff", "effect", "p_two_tailed"])
 print(pivot.round(4).to_string())
+# Only comparisons run on every corpus can agree or disagree across corpora.
 agree = (per_corpus.pivot_table(index=["outcome", "comparison"], columns="corpus", values="diff")
-         .apply(lambda r: np.sign(r).nunique() == 1, axis=1))
-print(f"\ndirection agrees across both corpora in {int(agree.sum())}/{len(agree)} outcome-comparisons")
+         .dropna().apply(lambda r: np.sign(r).nunique() == 1, axis=1))
+print(f"\ndirection agrees across both corpora in {int(agree.sum())}/{len(agree)} outcome-comparisons "
+      "(comparisons run on both corpora)")
 
 # ---------------------------------------------------------------- 5.2 equivalence
 print(f"\n=== 5.2 equivalence on answer_quality (TOST, margin +/-{EQUIV_MARGIN}) ===")
 eq_rows = []
 for a, b in COMPARISONS:
-    d = (dfs[a]["answer_quality"].to_numpy(float) - dfs[b]["answer_quality"].to_numpy(float))
+    d = (pairs[a, b]["answer_quality_a"].to_numpy(float) - pairs[a, b]["answer_quality_b"].to_numpy(float))
     d = d[~np.isnan(d)]
     p_tost, p_lo, p_hi = tost(d)
     # 90% (= 1-2*alpha) HL interval: the interval that corresponds to TOST at
@@ -324,7 +354,7 @@ cond = pd.DataFrame([
     for r in RETRIEVERS])
 print(cond.round(4).to_string(index=False))
 
-print("\n=== retrieval failures out of 200 (Wilson 95% CI) ===")
+print("\n=== retrieval failures (Wilson 95% CI) ===")
 for r in RETRIEVERS:
     k = int(dfs[r]["retrieval_failed"].sum())
     lo, hi = wilson(k, len(dfs[r]))
@@ -342,11 +372,11 @@ print(cost.round(6).to_string(index=False))
 # NOTE: LLM calls per query are not recorded in the RAGAS result files; the
 # draft's 4.35 figure has to come from the retriever's own logs, not from here.
 
-failures_avoided = {b: int((dfs[b]["retrieval_failed"].sum()
-                            - dfs["llm_retriever"]["retrieval_failed"].sum()))
-                    for _, b in COMPARISONS}
-extra_cost = {b: float(dfs["llm_retriever"]["cost"].sum() - dfs[b]["cost"].sum())
-              for _, b in COMPARISONS}
+# On the paired questions only, so a baseline run on one corpus is compared like for like.
+failures_avoided = {b: int(pairs[a, b]["retrieval_failed_b"].sum() - pairs[a, b]["retrieval_failed_a"].sum())
+                    for a, b in COMPARISONS}
+extra_cost = {b: float(pairs[a, b]["cost_a"].sum() - pairs[a, b]["cost_b"].sum())
+              for a, b in COMPARISONS}
 for b in failures_avoided:
     n_av, extra = failures_avoided[b], extra_cost[b]
     per = f"${extra / n_av:.4f}" if n_av > 0 else "n/a (no failures avoided)"

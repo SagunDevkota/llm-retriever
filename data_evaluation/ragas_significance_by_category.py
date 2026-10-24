@@ -12,8 +12,11 @@ out. This script tests that directly.
 
 Design: the 200 pooled questions are evenly split across 4 categories
 (50 each: 25 from playwright + 25 from DRF), so each category is a balanced
-paired subsample. Pairing is preserved within category -- all three pipelines
-answer the same 50 questions.
+paired subsample. Pairing is preserved within category -- every pipeline answers
+the same 50 questions. llm_retriever is compared against every baseline in
+BASELINES, with pairs matched on (corpus, user_input); a baseline run on only one
+corpus (e.g. KETRAG, DRF only) is compared on the 25 questions per category it
+has -- check `n` per row.
 
 Every RAGAS metric in the result files is tested per category, EXCEPT the two
 rouge_score columns. ROUGE is excluded deliberately: it is n-gram overlap against
@@ -29,10 +32,10 @@ Two derived outcomes are added:
   - retrieval_failed  -- binary (context_precision == 0), tested with an exact
                          McNemar; the pooled analysis showed the effect lives here
 
-Holm correction is applied WITHIN each outcome family (4 categories x 2
-comparisons = 8 tests). Correcting within outcome is the standard choice when
+Holm correction is applied WITHIN each outcome family (4 categories x one
+comparison per baseline). Correcting within outcome is the standard choice when
 outcomes answer distinct questions; state it in the paper. Because 7 outcomes x
-8 tests = 56 tests is substantial multiplicity, a `p_holm_global` column applies
+that family is substantial multiplicity, a `p_holm_global` column applies
 Holm across ALL tests as a conservative sensitivity check -- report both, since
 some findings are sensitive to which one you use.
 
@@ -56,8 +59,8 @@ from scipy.stats import binomtest, norm, rankdata, wilcoxon
 
 BASE_DIR = Path(__file__).resolve().parent
 CORPORA = {"playwright": BASE_DIR / "playwright", "drf": BASE_DIR / "django-rest-framework"}
-RETRIEVERS = ["naive_rag", "llm_retriever", "raptor"]
-COMPARISONS = [("llm_retriever", "naive_rag"), ("llm_retriever", "raptor")]
+BASELINES = ["naive_rag", "raptor", "hybrid_rerank", "ketrag", "rankgpt"]
+RETRIEVERS = ["llm_retriever"] + BASELINES
 # Ordered easiest -> hardest, which is the gradient the hypothesis predicts.
 CATEGORIES = ["straightforward", "intent_driven", "multi_hop", "debugging"]
 
@@ -76,15 +79,30 @@ ALPHA = 0.05
 RESULTS_CSV = BASE_DIR / "ragas_significance_by_category.csv"
 
 
+def questions_file(folder, retriever):
+    """questions_<retriever>.json, or the corpus-suffixed variant (questions_hybrid_rerank_playwright.json)."""
+    for path in (folder / f"questions_{retriever}.json", folder / f"questions_{retriever}_{folder.name}.json"):
+        if path.exists():
+            return path
+    return None
+
+
 def load(retriever):
-    """Merge both corpora for one pipeline, attaching each question's category."""
+    """Merge every corpus a pipeline was run on, attaching each question's category.
+    Returns None when the pipeline has no results in any corpus."""
     parts = []
     for corpus, folder in CORPORA.items():
-        df = pd.read_excel(folder / f"ragas_results_{retriever}.xlsx")
-        cats = {q["user_input"]: q["category"] for q in json.loads((folder / f"questions_{retriever}.json").read_text())}
+        ragas_path, q_path = folder / f"ragas_results_{retriever}.xlsx", questions_file(folder, retriever)
+        if q_path is None or not ragas_path.exists():
+            print(f"[load] {retriever}: no results for {corpus}, skipped")
+            continue
+        df = pd.read_excel(ragas_path)
+        cats = {q["user_input"]: q["category"] for q in json.loads(q_path.read_text())}
         df.insert(0, "corpus", corpus)
         df.insert(1, "category", df["user_input"].map(cats))
         parts.append(df)
+    if not parts:
+        return None
     merged = pd.concat(parts, ignore_index=True)
     if merged["category"].isna().any():
         raise ValueError(f"{retriever}: some questions have no category (join by user_input failed)")
@@ -97,15 +115,26 @@ def load(retriever):
     return merged.sort_values(["corpus", "user_input"], kind="stable").reset_index(drop=True)
 
 
-dfs = {r: load(r) for r in RETRIEVERS}
+dfs = {r: df for r in RETRIEVERS if (df := load(r)) is not None}
+if "llm_retriever" not in dfs:
+    raise SystemExit("llm_retriever results are required")
+RETRIEVERS = list(dfs)
+COMPARISONS = [("llm_retriever", b) for b in RETRIEVERS if b != "llm_retriever"]
 
-reference = dfs["llm_retriever"][["corpus", "user_input", "category"]]
-for name, df in dfs.items():
-    pd.testing.assert_frame_equal(
-        df[["corpus", "user_input", "category"]].reset_index(drop=True),
-        reference.reset_index(drop=True),
-        obj=f"{name} question alignment",
-    )
+
+def paired(a, b):
+    """Question-level pairs of pipelines a and b, matched on (corpus, user_input).
+    Columns carry an _a / _b suffix; row order follows a."""
+    m = dfs[a].merge(dfs[b], on=["corpus", "user_input"], suffixes=("_a", "_b"), validate="one_to_one")
+    if not (m["category_a"] == m["category_b"]).all():
+        raise ValueError(f"{a} vs {b}: same question has different categories")
+    unmatched = len(dfs[b]) - len(m)
+    if unmatched:
+        raise ValueError(f"{a} vs {b}: {unmatched} {b} questions have no {a} counterpart")
+    return m
+
+
+pairs = {(a, b): paired(a, b) for a, b in COMPARISONS}
 
 
 def rank_biserial(diffs):
@@ -206,9 +235,9 @@ rows = []
 for outcome in OUTCOMES:
     for cat in CATEGORIES:
         for a, b in COMPARISONS:
-            mask = dfs[a]["category"] == cat
-            x = dfs[a].loc[mask, outcome].to_numpy(float)
-            y = dfs[b].loc[mask, outcome].to_numpy(float)
+            sub = pairs[a, b][pairs[a, b]["category_a"] == cat]
+            x = sub[f"{outcome}_a"].to_numpy(float)
+            y = sub[f"{outcome}_b"].to_numpy(float)
             ok = ~(np.isnan(x) | np.isnan(y))
             x, y = x[ok], y[ok]
             diffs = x - y
