@@ -1,4 +1,4 @@
-# Hierarchical RAG
+# LLM Retriever
 
 An experimental retrieval pipeline that turns a documentation site into a tree of
 summarized sections and answers questions by letting an LLM navigate that tree level by

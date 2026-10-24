@@ -19,3 +19,5 @@ diagrams
 *.md
 *.env
 !README.md
+!docs/PROMPTS.md
+!docs/data_evaluation-deepseek-routing-3.1flash-lite-all/ragas_significance_pooled.csv
