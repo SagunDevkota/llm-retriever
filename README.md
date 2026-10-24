@@ -22,8 +22,9 @@ everything else) **are in
 [data_evaluation/](data_evaluation/) holds the analysis scripts and a working copy of the
 per-corpus data they read.
 
-The prompts used for summarization, traversal and answer generation are in
-[docs/PROMPTS.md](docs/PROMPTS.md).
+The exact configuration of every pipeline (models, parameters, and what was changed from each
+paper) is in [docs/BASELINES.md](docs/BASELINES.md). The prompts used for summarization,
+traversal and answer generation are in [docs/PROMPTS.md](docs/PROMPTS.md).
 
 ### Result files
 
